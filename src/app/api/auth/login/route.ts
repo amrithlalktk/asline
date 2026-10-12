@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { createSession, verifyPassword } from "@/lib/auth";
+import { createSession, verifyPassword, hasSessionSecret, SESSION_SECRET_MISSING } from "@/lib/auth";
 import { loginSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
+  if (!hasSessionSecret()) {
+    return NextResponse.json({ error: SESSION_SECRET_MISSING }, { status: 500 });
+  }
   const body = await request.json();
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) {

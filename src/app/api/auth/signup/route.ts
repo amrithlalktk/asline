@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { createSession, hashPassword } from "@/lib/auth";
+import { createSession, hashPassword, hasSessionSecret, SESSION_SECRET_MISSING } from "@/lib/auth";
 import { signupSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
+  if (!hasSessionSecret()) {
+    return NextResponse.json({ error: SESSION_SECRET_MISSING }, { status: 500 });
+  }
   const userCount = await db.user.count();
   if (userCount > 0) {
     return NextResponse.json(

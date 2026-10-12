@@ -10,6 +10,15 @@ const PASSWORD_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 export const SESSION_COOKIE = "session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
+// Sessions can't be signed without SESSION_SECRET — routes that log
+// someone in check this first so they fail cleanly (before creating an
+// account) instead of half-way through.
+export const SESSION_SECRET_MISSING =
+  "The server isn't fully set up: the SESSION_SECRET environment variable is missing. Add it (Vercel → Settings → Environment Variables) and redeploy.";
+export function hasSessionSecret() {
+  return Boolean(process.env.SESSION_SECRET);
+}
+
 function getSecretKey() {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET env var is not set");
