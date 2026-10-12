@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* Day / night theme: `dark:` utilities key off a `.dark` class on <html>,
+   set by the theme toggle (see ThemeToggle + the early script in the root
+   layout) rather than the OS media query, so the user's choice wins. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #fcfbfe;
+  /* AS LINE brand — keep in sync with src/lib/brand.ts. */
+  --brand: #5b3fd0;
+  --accent: #f5a524;
+  --canvas: #f0eef7;
+  --foreground: #171717;
+  /* Native controls (select popups, date pickers) follow the app's theme,
+     not the OS's. */
+  color-scheme: light;
+}
+
+/* Night theme. Most components carry their own `dark:` colours; for the
+   rest, "black" (used for text, borders and faint fills at various
+   opacities) becomes a soft light tone, so the whole UI inverts
+   consistently. Brand violet is lifted a little to stay readable on dark. */
+:root.dark {
+  --background: #0f111a;
+  --foreground: #e7e8ef;
+  --canvas: #141724;
+  --brand: #7c63ec;
+  --color-black: #eef0f7;
+  color-scheme: dark;
+}
+/* Dark-on-light accent text used for status chips/labels — lighter shades
+   for contrast on the dark background. */
+:root.dark .text-\[\#9a6200\] { color: #f5b84a; }
+:root.dark .text-\[\#0a7d0a\],
+:root.dark .text-\[\#0ca30c\] { color: #4cd964; }
+:root.dark .text-\[\#d03b3b\] { color: #ff7b7b; }
+:root.dark .text-\[\#b87400\] { color: #f5b84a; }
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-accent: var(--accent);
+  --color-canvas: var(--canvas);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* The glass effect (translucent + backdrop-blur) is a screen-only look —
+   printed pages should be plain white with solid borders instead, both for
+   ink and because backdrop-filter doesn't render consistently across
+   print engines. Card/SummaryCard/Modal opt into this via `print:` classes;
+   this covers anything print:hidden doesn't already remove. */
+@media print {
+  body {
+    background: #fff;
+  }
+  /* Paper is always light, whatever the screen theme. */
+  :root.dark {
+    --background: #fff;
+    --foreground: #171717;
+    --brand: #5b3fd0;
+    --color-black: #000;
+    color-scheme: light;
+  }
+}

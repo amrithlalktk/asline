@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "SaleItem" ADD COLUMN "ffaBonusCents" INTEGER NOT NULL DEFAULT 0;

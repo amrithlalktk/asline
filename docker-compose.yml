@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: asline
+      POSTGRES_PASSWORD: asline
+      POSTGRES_DB: asline
+    volumes:
+      - asline-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asline"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  app:
+    build:
+      context: .
+      args:
+        # Must match the runtime NEXT_PUBLIC_CURRENCY below — this one feeds
+        # the client bundle at build time, the one under `environment` feeds
+        # server-rendered pages at runtime.
+        NEXT_PUBLIC_CURRENCY: "INR"
+    ports:
+      - "3000:3000"
+    environment:
+      # Change this before exposing the app beyond your own machine.
+      SESSION_SECRET: "change-this-to-a-long-random-string"
+      NEXT_PUBLIC_CURRENCY: "INR"
+      DATABASE_URL: "postgresql://asline:asline@db:5432/asline"
+      DIRECT_URL: "postgresql://asline:asline@db:5432/asline"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  asline-db-data:

@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "PurchaseItem" ALTER COLUMN "quantity" SET DATA TYPE DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "SaleItem" ALTER COLUMN "quantity" SET DATA TYPE DOUBLE PRECISION;
+

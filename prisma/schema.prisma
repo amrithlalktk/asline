@@ -1,0 +1,536 @@
+generator client {
+  provider      = "prisma-client-js"
+  // rhel-openssl-3.0.x: Vercel's Node.js serverless runtime.
+  // linux-musl-openssl-3.0.x: the Alpine-based Docker image.
+  // native: local dev.
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooled connection string (e.g. Neon's `-pooler` host, or PgBouncer) —
+  // used for normal runtime queries from many concurrent serverless
+  // functions.
+  url       = env("DATABASE_URL")
+  // Unpooled/direct connection string — `prisma migrate deploy` needs
+  // this because poolers like PgBouncer don't support the advisory locks
+  // migrations take.
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+}
+
+// Category/Transaction are expense-only going forward — income is tracked
+// via Sale. The type field stays for minimal churn but only EXPENSE is
+// ever created now.
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum PartyType {
+  CUSTOMER
+  SUPPLIER
+  BOTH
+}
+
+enum AccountType {
+  CASH
+  BANK
+}
+
+enum PartyPaymentDirection {
+  RECEIVED // an advance received from the party (e.g. a customer prepaying)
+  PAID // an advance paid to the party (e.g. prepaying a supplier)
+}
+
+enum PaymentSource {
+  CASH // fresh money changing hands right now
+  ADVANCE // settled against a party's existing advance credit — see PartyPayment
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  // Null until the user follows their invite-setup link. Admin-created
+  // accounts start this way instead of an admin-chosen temporary password.
+  passwordHash        String?
+  role                Role                 @default(STAFF)
+  active              Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  // Where this user's one-click "Email PDF" sends bills/reports — separate
+  // from their login `email` so it can point at e.g. an accountant's inbox.
+  // Comma-separated for multiple recipients (passed straight through as the
+  // mail `to` header, which accepts that natively). Null until they set it
+  // in Account settings.
+  notifyEmails        String?
+  transactions        Transaction[]
+  sales               Sale[]
+  forwardSales        ForwardSale[]
+  stockAdjustments    StockAdjustment[]
+  purchases           Purchase[]
+  advancePayments     PartyPayment[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// A one-time link emailed to a user who forgot their password. `tokenHash`
+// is a fast SHA-256 hash (not bcrypt) of the raw token that's actually in
+// the emailed URL — that raw token never touches the database, and a fast
+// hash is fine here since the token itself is high-entropy random, unlike a
+// user-chosen password that needs slow hashing to resist guessing.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+model Category {
+  id           String          @id @default(cuid())
+  name         String
+  type         TransactionType
+  createdAt    DateTime        @default(now())
+  transactions Transaction[]
+
+  @@unique([name, type])
+}
+
+// Where money sits: cash in hand or a bank account. Every payment, advance
+// and expense records which account it went through (its `paymentMethod`
+// column holds the Account id), so an account's available balance is
+// openingBalanceCents + money in − money out — see getAccountBalances.
+// "CASH" is the built-in cash account and can't be deleted.
+model Account {
+  id                  String            @id @default(cuid())
+  name                String            @unique
+  type                AccountType       @default(BANK)
+  openingBalanceCents Int               @default(0)
+  // Hidden from payment pickers when false; history and balance remain.
+  active              Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  transactions        Transaction[]
+  partyPayments       PartyPayment[]
+  sales               Sale[]
+  salePayments        SalePayment[]
+  purchases           Purchase[]
+  purchasePayments    PurchasePayment[]
+}
+
+model Transaction {
+  id            String              @id @default(cuid())
+  date          DateTime
+  description   String
+  amountCents   Int
+  type          TransactionType
+  category      Category            @relation(fields: [categoryId], references: [id])
+  categoryId    String
+  recordedBy    User                @relation(fields: [userId], references: [id])
+  userId        String
+  // Account the money left from — see Account.
+  paymentMethod String?
+  account       Account?            @relation(fields: [paymentMethod], references: [id], onDelete: Restrict)
+  notes         String?
+  createdAt     DateTime            @default(now())
+  // Bills this expense was incurred for, with how much of it each carries.
+  allocations   ExpenseAllocation[]
+
+  @@index([date])
+  @@index([type])
+}
+
+// The part of an expense charged to one specific bill — e.g. a lorry hire
+// shared across three purchases. An expense can be split over any mix of
+// sale and purchase bills; its allocations add up to the expense amount
+// when saved. Counted as cost in that bill's profit (and, for a purchase,
+// in the profit of the sale it's linked to). Deleting the bill drops its
+// share; deleting the expense drops all of them.
+model ExpenseAllocation {
+  id          String      @id @default(cuid())
+  expense     Transaction @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId   String
+  sale        Sale?       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId      String?
+  purchase    Purchase?   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchaseId  String?
+  amountCents Int
+
+  @@index([expenseId])
+  @@index([saleId])
+  @@index([purchaseId])
+}
+
+model Party {
+  id                  String         @id @default(cuid())
+  name                String
+  type                PartyType      @default(BOTH)
+  phone               String?
+  email               String?
+  address             String?
+  gstNumber           String?
+  notes               String?
+  openingBalanceCents Int            @default(0)
+  createdAt           DateTime       @default(now())
+  sales               Sale[]
+  forwardSales        ForwardSale[]
+  purchases           Purchase[]
+  advancePayments     PartyPayment[]
+}
+
+// Money exchanged with a party outside of any specific Sale/Purchase — most
+// commonly an advance a customer pays before an order, or an advance paid to
+// a supplier before delivery. Included in the party's running balance
+// alongside unpaid Sale/Purchase amounts (see getPartyBalanceMap).
+model PartyPayment {
+  id                      String                @id @default(cuid())
+  party                   Party                 @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyId                 String
+  date                    DateTime
+  direction               PartyPaymentDirection
+  amountCents             Int
+  paymentMethod           String                @default("CASH")
+  account                 Account               @relation(fields: [paymentMethod], references: [id], onDelete: Restrict)
+  notes                   String?
+  recordedBy              User                  @relation(fields: [userId], references: [id])
+  userId                  String
+  createdAt               DateTime              @default(now())
+  // Set when this row is the "excess above what was due" portion of a
+  // specific bill payment (see POST .../payments routes), so deleting that
+  // bill payment cascades away the advance credit it created instead of
+  // leaving it behind as phantom credit still applied to some other bill.
+  sourceSalePayment       SalePayment?          @relation(fields: [sourceSalePaymentId], references: [id], onDelete: Cascade)
+  sourceSalePaymentId     String?               @unique
+  sourcePurchasePayment   PurchasePayment?      @relation(fields: [sourcePurchasePaymentId], references: [id], onDelete: Cascade)
+  sourcePurchasePaymentId String?               @unique
+
+  @@index([date])
+}
+
+model Item {
+  id                String            @id @default(cuid())
+  name              String
+  unit              String            @default("pcs")
+  openingStockQty   Int               @default(0)
+  lowStockThreshold Int?
+  // When true, a Sale/Purchase line for this item asks for an FFA grade
+  // (FFA-1..FFA-10) — a quality rating, not every item needs one.
+  ffaGraded         Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  saleItems         SaleItem[]
+  forwardSales      ForwardSale[]
+  stockAdjustments  StockAdjustment[]
+  purchaseItems     PurchaseItem[]
+}
+
+// A manageable list of extra charge types (lorry rent, packing charge,
+// coolie, etc.) that can be added on top of a Sale/Purchase's item total.
+// A charge line always stores a denormalized `label` snapshot (like
+// SaleItem.priceCents snapshots an item's price), so historical charges
+// stay readable even if a ChargeType is later renamed or deleted.
+model ChargeType {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  createdAt       DateTime         @default(now())
+  saleCharges     SaleCharge[]
+  purchaseCharges PurchaseCharge[]
+}
+
+model Sale {
+  id                 String              @id @default(cuid())
+  // Sequential invoice number for this sale, assigned by the API as
+  // (current max + 1) — its own series, separate from Purchase's.
+  billNumber         Int                 @unique @default(0)
+  date               DateTime
+  party              Party?              @relation(fields: [partyId], references: [id])
+  // Purchases whose goods were sold on this bill — see Purchase.linkedSale.
+  linkedPurchases    Purchase[]          @relation("SalePurchases")
+  expenseAllocations ExpenseAllocation[]
+  partyId            String?
+  items              SaleItem[]
+  charges            SaleCharge[]
+  payments           SalePayment[]
+  totalCents         Int
+  // Maintained cache = sum of `payments`, kept in sync whenever a payment
+  // is added/edited/deleted — never edited directly once the sale exists,
+  // so it can't drift from the payment history.
+  paidCents          Int                 @default(0)
+  paymentMethod      String              @default("CASH")
+  account            Account             @relation(fields: [paymentMethod], references: [id], onDelete: Restrict)
+  notes              String?
+  recordedBy         User                @relation(fields: [userId], references: [id])
+  userId             String
+  createdAt          DateTime            @default(now())
+
+  @@index([date])
+}
+
+// One installment against a Sale — recorded with its own date/amount/method
+// so a bill can be paid off over several visits instead of one lump sum.
+model SalePayment {
+  id                 String        @id @default(cuid())
+  sale               Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId             String
+  date               DateTime
+  amountCents        Int
+  paymentMethod      String        @default("CASH")
+  account            Account       @relation(fields: [paymentMethod], references: [id], onDelete: Restrict)
+  // ADVANCE means this amount was already accounted for as a PartyPayment
+  // (RECEIVED) earlier — see getPartyBalanceMap, which nets ADVANCE-sourced
+  // sale payments back out of the party's advance pool so it isn't counted
+  // as both "still available" and "used to pay this bill".
+  source             PaymentSource @default(CASH)
+  notes              String?
+  createdAt          DateTime      @default(now())
+  // Reverse side of PartyPayment.sourceSalePayment — the excess-as-advance
+  // credit this specific payment spawned, if any.
+  excessPartyPayment PartyPayment?
+
+  @@index([date])
+}
+
+model SaleItem {
+  id             String       @id @default(cuid())
+  sale           Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId         String
+  item           Item         @relation(fields: [itemId], references: [id])
+  itemId         String
+  // KG, can be fractional (e.g. 1.5).
+  quantity       Float
+  // Effective rate: the base rate typed in + ffaBonusCents.
+  priceCents     Int
+  // Per-unit amount the FFA grade added to the rate (FFA-10 = 0, each grade
+  // better = +2, see src/lib/ffa.ts) — base rate = priceCents - this.
+  ffaBonusCents  Int          @default(0)
+  // Pre-tax: quantity * priceCents.
+  lineTotalCents Int
+  // GST-style rate for this line (e.g. 18 for 18%) — 0 for no tax.
+  taxPercent     Float        @default(0)
+  // round(lineTotalCents * taxPercent / 100), stored so historical bills
+  // don't recompute differently if the item's price changes later.
+  taxCents       Int          @default(0)
+  // FFA grade (e.g. "FFA-3") — only for ffaGraded items, and may be added
+  // days after the bill (lab result), which reprices the line.
+  ffaGrade       String?
+  // The forward sale this line delivers against (see ForwardSale) — its
+  // quantity counts as delivered there. Deleting the forward sale keeps
+  // the sale, just unlinked.
+  forwardSale    ForwardSale? @relation(fields: [forwardSaleId], references: [id], onDelete: SetNull)
+  forwardSaleId  String?
+
+  @@index([forwardSaleId])
+}
+
+// A forward sale: a quantity of an item agreed to be sold to a party at a
+// fixed rate, delivered later — usually over several sale bills. It's only
+// a commitment: party balances and stock change when the actual sales
+// (deliveries) are billed. Delivered = sum of linked SaleItem quantities;
+// pending = quantity − delivered.
+model ForwardSale {
+  id         String     @id @default(cuid())
+  // Own series, shown as "Fwd #001".
+  number     Int        @unique
+  date       DateTime
+  party      Party      @relation(fields: [partyId], references: [id])
+  partyId    String
+  item       Item       @relation(fields: [itemId], references: [id])
+  itemId     String
+  quantity   Float
+  rateCents  Int
+  // Optional date the goods are due by.
+  dueDate    DateTime?
+  notes      String?
+  // Closed by hand (e.g. the party cancelled the rest) — stops new
+  // deliveries being matched to it even if quantity is still pending.
+  closed     Boolean    @default(false)
+  recordedBy User       @relation(fields: [userId], references: [id])
+  userId     String
+  createdAt  DateTime   @default(now())
+  deliveries SaleItem[]
+
+  @@index([partyId, itemId])
+}
+
+// A manual correction to an item's stock — e.g. after a physical count,
+// for shrinkage/moisture loss, or damaged goods. `quantity` is signed
+// (+ adds stock, − removes it). Current stock = opening + purchases −
+// sales + adjustments (see getItemStockMap).
+model StockAdjustment {
+  id         String   @id @default(cuid())
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId     String
+  date       DateTime
+  quantity   Float
+  reason     String?
+  recordedBy User     @relation(fields: [userId], references: [id])
+  userId     String
+  createdAt  DateTime @default(now())
+
+  @@index([itemId])
+}
+
+model SaleCharge {
+  id           String      @id @default(cuid())
+  sale         Sale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId       String
+  chargeType   ChargeType? @relation(fields: [chargeTypeId], references: [id])
+  chargeTypeId String?
+  label        String
+  amountCents  Int
+}
+
+model Purchase {
+  id                 String              @id @default(cuid())
+  // Sequential bill number for this purchase — own series, separate from
+  // Sale's (see Sale.billNumber). Every supplier entry of a combined bill
+  // shares the bill's one number, so it's unique per supplier.
+  billNumber         Int                 @default(0)
+  date               DateTime
+  party              Party?              @relation(fields: [partyId], references: [id])
+  partyId            String?
+  items              PurchaseItem[]
+  charges            PurchaseCharge[]
+  payments           PurchasePayment[]
+  totalCents         Int
+  // Maintained cache = sum of `payments` — see Sale.paidCents.
+  paidCents          Int                 @default(0)
+  paymentMethod      String              @default("CASH")
+  account            Account             @relation(fields: [paymentMethod], references: [id], onDelete: Restrict)
+  notes              String?
+  recordedBy         User                @relation(fields: [userId], references: [id])
+  userId             String
+  createdAt          DateTime            @default(now())
+  // The sale this stock was bought for — goods collected from several
+  // suppliers and sold together on one bill. Lets that sale's profit be
+  // worked out from what was actually paid for it, instead of average
+  // cost. A purchase belongs to at most one sale so it's never counted
+  // twice; deleting the sale just unlinks it.
+  linkedSale         Sale?               @relation("SalePurchases", fields: [linkedSaleId], references: [id], onDelete: SetNull)
+  linkedSaleId       String?
+  // Set when this purchase is one supplier's part of a combined bill —
+  // goods from several suppliers entered together (see PurchaseGroup).
+  group              PurchaseGroup?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groupId            String?
+  expenseAllocations ExpenseAllocation[]
+
+  @@unique([billNumber, partyId])
+  @@index([date])
+  @@index([linkedSaleId])
+  @@index([groupId])
+  @@index([billNumber])
+}
+
+// A combined purchase bill: goods collected from several suppliers and
+// entered as one bill. Each supplier's part is stored as its own Purchase
+// (so every supplier's balance, payments and statement stay correct) and
+// they share this group and its number.
+model PurchaseGroup {
+  id        String     @id @default(cuid())
+  // The bill's purchase number — the same billNumber every supplier
+  // entry in it carries.
+  number    Int        @unique
+  date      DateTime
+  notes     String?
+  createdAt DateTime   @default(now())
+  purchases Purchase[]
+}
+
+// One installment against a Purchase — see SalePayment.
+model PurchasePayment {
+  id                 String        @id @default(cuid())
+  purchase           Purchase      @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchaseId         String
+  date               DateTime
+  amountCents        Int
+  paymentMethod      String        @default("CASH")
+  account            Account       @relation(fields: [paymentMethod], references: [id], onDelete: Restrict)
+  // ADVANCE means this amount was already accounted for as a PartyPayment
+  // (PAID) earlier — see getPartyBalanceMap, which nets ADVANCE-sourced
+  // purchase payments back out of the party's advance pool so it isn't
+  // counted as both "still available" and "used to pay this bill".
+  source             PaymentSource @default(CASH)
+  notes              String?
+  createdAt          DateTime      @default(now())
+  // Reverse side of PartyPayment.sourcePurchasePayment — the excess-as-advance
+  // credit this specific payment spawned, if any.
+  excessPartyPayment PartyPayment?
+
+  @@index([date])
+}
+
+model PurchaseItem {
+  id             String   @id @default(cuid())
+  purchase       Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchaseId     String
+  item           Item     @relation(fields: [itemId], references: [id])
+  itemId         String
+  // KG, can be fractional (e.g. 1.5).
+  quantity       Float
+  priceCents     Int
+  // Pre-tax: quantity * priceCents.
+  lineTotalCents Int
+  // GST-style rate for this line (e.g. 18 for 18%) — 0 for no tax.
+  taxPercent     Float    @default(0)
+  // round(lineTotalCents * taxPercent / 100) — see SaleItem.taxCents.
+  taxCents       Int      @default(0)
+  // FFA grade (e.g. "FFA-3") — only set when the item is ffaGraded.
+  ffaGrade       String?
+}
+
+model PurchaseCharge {
+  id           String      @id @default(cuid())
+  purchase     Purchase    @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchaseId   String
+  chargeType   ChargeType? @relation(fields: [chargeTypeId], references: [id])
+  chargeTypeId String?
+  label        String
+  amountCents  Int
+}
+
+// A free-form, Excel-like sheet — shared across the whole team like every
+// other record in the app, not scoped to the user who created it. Cells are
+// stored sparsely (only non-empty ones) as { "A1": "raw text or =formula" },
+// keyed by spreadsheet-style address — a full one-row-per-cell table would
+// be massive overkill for typical usage and adds nothing a JSON blob
+// doesn't already give us just as well.
+model NoteSheet {
+  id        String   @id @default(cuid())
+  name      String
+  // Display/tab order — lower first.
+  order     Int      @default(0)
+  data      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// A standalone address-book entry for the "Email PDF" recipient picker —
+// for someone who should receive bills/reports but isn't a Party (e.g. an
+// accountant, or the owner's own second inbox). Shared across the whole
+// team like Party, not scoped to one user. Party.email covers the other
+// half of the picker's search (see /api/email-contacts and EmailPdfButton).
+model EmailContact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  createdAt DateTime @default(now())
+}
+
+// The business's own details printed on bills, statements and report
+// exports — a single row (id "default"), edited on the About page.
+model CompanyProfile {
+  id        String   @id @default("default")
+  name      String
+  address   String   @default("")
+  gstin     String   @default("")
+  phone     String   @default("")
+  email     String   @default("")
+  updatedAt DateTime @updatedAt
+}
