@@ -41,8 +41,8 @@ the admin can also create staff accounts (Users page).
 
 1. In Vercel, **Add New → Project** and import this GitHub repo.
 2. **Storage → Create Database → Neon (Postgres)** and connect it to the
-   project. Then add `DIRECT_URL` with the same value as
-   `DATABASE_URL_UNPOOLED`.
+   project (this provides `DATABASE_URL` and `DATABASE_URL_UNPOOLED`;
+   `DIRECT_URL` is filled in from the latter automatically).
 3. Add the remaining environment variables from `.env.example`
    (`SESSION_SECRET`, `NEXT_PUBLIC_CURRENCY`, `COOKIE_SECURE=true`,
    `APP_URL`, and optionally `SMTP_*`).
