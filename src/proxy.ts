@@ -6,7 +6,9 @@ import { isAdminRole } from "@/lib/types";
 const PUBLIC_PATHS = ["/login", "/reset-password"];
 const ADMIN_ONLY_PREFIXES = ["/categories", "/users", "/accounts"];
 
-export async function middleware(request: NextRequest) {
+// Next.js 16 "proxy" (formerly middleware) — runs on the Node.js runtime,
+// which the session check needs (it uses Node's crypto via auth.ts).
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (

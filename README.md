@@ -37,6 +37,19 @@ Open http://localhost:3000 — the first visit prompts you to create the admin
 account. From there, add some Parties/Items, then record Sales/Purchases;
 the admin can also create staff accounts (Users page).
 
+## Deploying to Vercel
+
+1. In Vercel, **Add New → Project** and import this GitHub repo.
+2. **Storage → Create Database → Neon (Postgres)** and connect it to the
+   project. Then add `DIRECT_URL` with the same value as
+   `DATABASE_URL_UNPOOLED`.
+3. Add the remaining environment variables from `.env.example`
+   (`SESSION_SECRET`, `NEXT_PUBLIC_CURRENCY`, `COOKIE_SECURE=true`,
+   `APP_URL`, and optionally `SMTP_*`).
+4. Deploy. The build (`vercel.json`) applies database migrations and the
+   default categories automatically. The first visit asks you to create the
+   Super Admin account.
+
 ## Running in Docker
 
 ```bash
