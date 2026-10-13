@@ -1,0 +1,66 @@
+# Backs up the production database twice a day: 1:00 AM and 6:00 PM India
+# time (IST = UTC+5:30, and GitHub schedules run in UTC). Each backup is a
+# full pg_dump, encrypted with BACKUP_PASSPHRASE before it's stored — this
+# repo is public, and anyone signed in to GitHub can download a public
+# repo's workflow artifacts. Backups are kept for 30 days.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL       — Neon's unpooled connection string (DATABASE_URL_UNPOOLED in Vercel)
+#   BACKUP_PASSPHRASE  — a long passphrase; you need it to restore, keep it safe
+#
+# Restore: see "Database backups" in README.md.
+name: Database backup
+
+on:
+  schedule:
+    - cron: "30 19 * * *" # 01:00 IST
+    - cron: "30 12 * * *" # 18:00 IST
+  workflow_dispatch: # "Run workflow" button for an on-demand backup
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Add the DATABASE_URL and BACKUP_PASSPHRASE repository secrets first."
+            exit 1
+          fi
+
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          STAMP=$(TZ=Asia/Kolkata date +%Y-%m-%d_%H%M)
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          # pg_dump from the newest Postgres image can dump any older server.
+          docker run --rm -e DATABASE_URL postgres:18-alpine \
+            sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges' \
+            > "asline-$STAMP.dump"
+          ls -lh "asline-$STAMP.dump"
+          test -s "asline-$STAMP.dump"
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" \
+            --output "asline-$STAMP.dump.gpg" "asline-$STAMP.dump"
+          rm "asline-$STAMP.dump"
+
+      - name: Store backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: asline-db-${{ env.STAMP }}
+          path: asline-${{ env.STAMP }}.dump.gpg
+          retention-days: 30
+          if-no-files-found: error

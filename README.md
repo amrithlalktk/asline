@@ -50,6 +50,33 @@ the admin can also create staff accounts (Users page).
    default categories automatically. The first visit asks you to create the
    Super Admin account.
 
+## Database backups
+
+`.github/workflows/db-backup.yml` backs up the production database every day
+at **1:00 AM and 6:00 PM IST** (and on demand: Actions → *Database backup* →
+*Run workflow*). Each backup is a full `pg_dump`, **encrypted** with your
+passphrase, kept as a workflow artifact for 30 days.
+
+One-time setup — repo **Settings → Secrets and variables → Actions → New
+repository secret**:
+
+- `DATABASE_URL` — Neon's **unpooled** connection string (Vercel shows it as
+  `DATABASE_URL_UNPOOLED`).
+- `BACKUP_PASSPHRASE` — a long passphrase. You need it to restore; store it
+  somewhere safe (a password manager). Without it the backups can't be opened.
+
+To restore (needs Docker and gpg):
+
+```bash
+# 1. Download the backup zip from the workflow run (Actions → run → Artifacts) and unzip it
+gpg --decrypt --output asline.dump asline-YYYY-MM-DD_HHMM.dump.gpg   # asks for the passphrase
+
+# 2. Restore into a database (this REPLACES its tables — use a fresh database
+#    unless you mean to overwrite)
+docker run --rm -v "$PWD":/backup -e TARGET="postgresql://USER:PASSWORD@HOST/DB?sslmode=require" \
+  postgres:18-alpine sh -c 'pg_restore --no-owner --no-privileges --clean --if-exists -d "$TARGET" /backup/asline.dump'
+```
+
 ## Running in Docker
 
 ```bash
