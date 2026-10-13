@@ -456,10 +456,12 @@ export async function getItemAverageCostMap() {
 //        (incl. the excess part of an overpaid bill, stored as a RECEIVED
 //        PartyPayment), and any INCOME transaction
 //   out: purchase payments with fresh money, advances paid, expenses
+//   transfers between own accounts (withdraw/deposit): out of one, into
+//        the other — total money unchanged
 // ADVANCE-sourced bill payments just apply credit already counted when the
 // advance came in, so they're excluded — counting them would double it.
 export async function getAccountBalances() {
-  const [accounts, saleIn, purchaseOut, partyMoves, txMoves] = await Promise.all([
+  const [accounts, saleIn, purchaseOut, partyMoves, txMoves, transfersOut, transfersIn] = await Promise.all([
     db.account.findMany({ orderBy: [{ type: "asc" }, { createdAt: "asc" }] }),
     db.salePayment.groupBy({
       by: ["paymentMethod"],
@@ -480,6 +482,8 @@ export async function getAccountBalances() {
       where: { paymentMethod: { not: null } },
       _sum: { amountCents: true },
     }),
+    db.accountTransfer.groupBy({ by: ["fromAccountId"], _sum: { amountCents: true } }),
+    db.accountTransfer.groupBy({ by: ["toAccountId"], _sum: { amountCents: true } }),
   ]);
 
   const inBy = new Map<string, number>();
@@ -494,6 +498,8 @@ export async function getAccountBalances() {
     add(r.direction === "RECEIVED" ? inBy : outBy, r.paymentMethod, r._sum.amountCents);
   for (const r of txMoves)
     add(r.type === "INCOME" ? inBy : outBy, r.paymentMethod, r._sum.amountCents);
+  for (const r of transfersOut) add(outBy, r.fromAccountId, r._sum.amountCents);
+  for (const r of transfersIn) add(inBy, r.toAccountId, r._sum.amountCents);
 
   return accounts.map((a) => {
     const inCents = inBy.get(a.id) ?? 0;

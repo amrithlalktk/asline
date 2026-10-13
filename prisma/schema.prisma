@@ -72,6 +72,7 @@ model User {
   transactions        Transaction[]
   sales               Sale[]
   forwardSales        ForwardSale[]
+  accountTransfers    AccountTransfer[]
   stockAdjustments    StockAdjustment[]
   purchases           Purchase[]
   advancePayments     PartyPayment[]
@@ -124,6 +125,28 @@ model Account {
   salePayments        SalePayment[]
   purchases           Purchase[]
   purchasePayments    PurchasePayment[]
+  transfersOut        AccountTransfer[] @relation("TransferFrom")
+  transfersIn         AccountTransfer[] @relation("TransferTo")
+}
+
+// Money moved between the business's own accounts — a cash withdrawal
+// from the bank (bank → cash), a deposit (cash → bank), or a transfer
+// between two bank accounts. Lowers one balance and raises the other by
+// the same amount; not income or expense.
+model AccountTransfer {
+  id            String   @id @default(cuid())
+  date          DateTime
+  fromAccount   Account  @relation("TransferFrom", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  fromAccountId String
+  toAccount     Account  @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: Restrict)
+  toAccountId   String
+  amountCents   Int
+  notes         String?
+  recordedBy    User     @relation(fields: [userId], references: [id])
+  userId        String
+  createdAt     DateTime @default(now())
+
+  @@index([date])
 }
 
 model Transaction {

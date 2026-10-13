@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { Banknote, Landmark } from "lucide-react";
 import Card from "@/components/Card";
+import AccountTransferCard from "@/components/AccountTransferCard";
 import { formatCents } from "@/lib/money";
 import { invalidateAccounts } from "@/lib/useAccounts";
 import { CASH_ACCOUNT_ID, type Account, type AccountType } from "@/lib/types";
@@ -169,6 +170,9 @@ export default function AccountsPage() {
           {error && <p className="w-full text-sm text-red-600">{error}</p>}
         </form>
       </Card>
+
+      {/* Accounts page is admin-only, so admins can undo transfers here. */}
+      <AccountTransferCard accounts={accounts} canDelete onChanged={load} />
 
       <Card className="p-0">
         <div className="overflow-x-auto">

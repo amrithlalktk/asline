@@ -230,3 +230,17 @@ export const stockAdjustmentSchema = z.object({
   quantity: z.number().finite("Enter a quantity"),
   reason: z.string().trim().optional().nullable(),
 });
+
+// Moving money between own accounts (withdraw / deposit / transfer).
+export const accountTransferSchema = z
+  .object({
+    date: z.string().min(1, "Date is required"),
+    fromAccountId: z.string().min(1, "Choose the account the money leaves"),
+    toAccountId: z.string().min(1, "Choose the account the money goes to"),
+    amount: z.number().positive("Amount must be greater than 0"),
+    notes: z.string().trim().optional().nullable(),
+  })
+  .refine((d) => d.fromAccountId !== d.toAccountId, {
+    message: "Choose two different accounts",
+    path: ["toAccountId"],
+  });
