@@ -11,6 +11,8 @@
 # Restore: see "Database backups" in README.md.
 name: Database backup
 
+# Started by Vercel Cron (/api/cron/backup) — GitHub's own schedule below is
+# best-effort and can skip runs, so it's only a fallback.
 on:
   schedule:
     - cron: "30 19 * * *" # 01:00 IST
