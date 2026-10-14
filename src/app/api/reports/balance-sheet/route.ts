@@ -6,25 +6,29 @@ import {
   getItemAverageCostMap,
   getItemStockMap,
   getPartyBalanceMap,
+  getPartnerCapital,
 } from "@/lib/balances";
 
 // Balance sheet as of now, built from what the app already tracks:
 //   Assets      — cash & bank balances, money parties owe us, stock at cost
 //   Liabilities — money we owe parties, bank overdrafts (negative balances)
-//   Equity      — assets − liabilities (opening capital + profit to date)
+//   Equity      — assets − liabilities, split into partners' capital
+//                 (contributions − withdrawals) and profit kept in the
+//                 business (the rest: opening balances + profit to date)
 // Party balances already net in advances (a customer's unused advance is
 // money we owe them; an advance we paid a supplier is money they owe us).
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [accounts, parties, dueByParty, items, stockDelta, avgCost] = await Promise.all([
+  const [accounts, parties, dueByParty, items, stockDelta, avgCost, partners] = await Promise.all([
     getAccountBalances(),
     db.party.findMany({ select: { id: true, name: true, openingBalanceCents: true } }),
     getPartyBalanceMap(),
     db.item.findMany({ select: { id: true, name: true, unit: true, openingStockQty: true } }),
     getItemStockMap(),
     getItemAverageCostMap(),
+    getPartnerCapital(),
   ]);
 
   // Hidden accounts still hold money — include any with a balance.
@@ -67,11 +71,18 @@ export async function GET() {
   const assets = totals.cashBank + totals.receivables + totals.stock;
   const liabilities = totals.payables + totals.overdrafts;
 
+  const equityCents = assets - liabilities;
+  const partnerCapital = partners
+    .filter((p) => p.capitalCents !== 0)
+    .map((p) => ({ name: p.name, cents: p.capitalCents }));
+  const capitalCents = partnerCapital.reduce((s, p) => s + p.cents, 0);
+
   return NextResponse.json({
     asOf: new Date().toISOString(),
     assets: { cashBank, receivables, stock, total: assets },
     liabilities: { payables, overdrafts, total: liabilities },
     totals,
-    equityCents: assets - liabilities,
+    equityCents,
+    equity: { partnerCapital, capitalCents, retainedCents: equityCents - capitalCents },
   });
 }

@@ -20,6 +20,7 @@ type Sheet = {
   liabilities: { payables: Row[]; overdrafts: (Row & { type: string })[]; total: number };
   totals: { cashBank: number; receivables: number; stock: number; payables: number; overdrafts: number };
   equityCents: number;
+  equity: { partnerCapital: Row[]; capitalCents: number; retainedCents: number };
 };
 
 const HEADER = ["Section", "Line", "Amount"];
@@ -103,7 +104,9 @@ export default function BalanceSheetPage() {
       ...lines("Liabilities · Payables", sheet.liabilities.payables),
       ...lines("Liabilities · Bank overdraft", sheet.liabilities.overdrafts),
       ["Liabilities", "TOTAL LIABILITIES", r(sheet.liabilities.total)],
-      ["Equity", "Owner's equity (assets − liabilities)", r(sheet.equityCents)],
+      ...lines("Equity · Partners' capital", sheet.equity.partnerCapital),
+      ["Equity", "Profit kept in business", r(sheet.equity.retainedCents)],
+      ["Equity", "TOTAL EQUITY (assets − liabilities)", r(sheet.equityCents)],
     ];
   }
 
@@ -197,11 +200,25 @@ export default function BalanceSheetPage() {
                 <span>Total liabilities</span>
                 <span>{formatCents(sheet.liabilities.total)}</span>
               </div>
-              <div className="mt-3 flex justify-between rounded-lg bg-brand/10 px-3 py-2">
-                <span className="font-medium">Owner&apos;s equity</span>
-                <span className={`font-semibold ${sheet.equityCents < 0 ? "text-[#d03b3b]" : "text-brand"}`}>
-                  {formatCents(sheet.equityCents)}
-                </span>
+              <div className="mt-3 rounded-lg bg-brand/10 px-3 py-1">
+                <Section
+                  title="Partners' capital"
+                  totalCents={sheet.equity.capitalCents}
+                  rows={sheet.equity.partnerCapital}
+                  empty="No partner capital recorded (Partners & Capital page)."
+                />
+                <div className="flex justify-between border-t border-black/5 py-2 text-sm dark:border-white/5">
+                  <span className="pl-[21px]">Profit kept in business</span>
+                  <span className={`font-medium ${sheet.equity.retainedCents < 0 ? "text-[#d03b3b]" : ""}`}>
+                    {formatCents(sheet.equity.retainedCents)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-black/10 py-2 font-medium dark:border-white/10">
+                  <span>Owner&apos;s equity</span>
+                  <span className={`font-semibold ${sheet.equityCents < 0 ? "text-[#d03b3b]" : "text-brand"}`}>
+                    {formatCents(sheet.equityCents)}
+                  </span>
+                </div>
               </div>
               <div className="mt-2 flex justify-between border-t border-black/15 pt-2 font-semibold dark:border-white/15">
                 <span>Liabilities + equity</span>
@@ -211,8 +228,8 @@ export default function BalanceSheetPage() {
           </div>
 
           <p className="text-xs text-black/50 dark:text-white/50">
-            Owner&apos;s equity = total assets − total liabilities: your opening capital plus profit
-            to date. Party balances include advances (a customer&apos;s unused advance is a payable;
+            Owner&apos;s equity = total assets − total liabilities: partners&apos; capital (added −
+            withdrawn) plus profit kept in the business (opening balances and profit to date). Party balances include advances (a customer&apos;s unused advance is a payable;
             an advance you paid a supplier is a receivable). Stock is valued at each item&apos;s
             average purchase cost.
           </p>

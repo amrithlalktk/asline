@@ -458,10 +458,11 @@ export async function getItemAverageCostMap() {
 //   out: purchase payments with fresh money, advances paid, expenses
 //   transfers between own accounts (withdraw/deposit): out of one, into
 //        the other — total money unchanged
+//   partner capital: contributions in, withdrawals (drawings) out
 // ADVANCE-sourced bill payments just apply credit already counted when the
 // advance came in, so they're excluded — counting them would double it.
 export async function getAccountBalances() {
-  const [accounts, saleIn, purchaseOut, partyMoves, txMoves, transfersOut, transfersIn] = await Promise.all([
+  const [accounts, saleIn, purchaseOut, partyMoves, txMoves, transfersOut, transfersIn, capitalMoves] = await Promise.all([
     db.account.findMany({ orderBy: [{ type: "asc" }, { createdAt: "asc" }] }),
     db.salePayment.groupBy({
       by: ["paymentMethod"],
@@ -484,6 +485,7 @@ export async function getAccountBalances() {
     }),
     db.accountTransfer.groupBy({ by: ["fromAccountId"], _sum: { amountCents: true } }),
     db.accountTransfer.groupBy({ by: ["toAccountId"], _sum: { amountCents: true } }),
+    db.capitalEntry.groupBy({ by: ["paymentMethod", "type"], _sum: { amountCents: true } }),
   ]);
 
   const inBy = new Map<string, number>();
@@ -500,10 +502,29 @@ export async function getAccountBalances() {
     add(r.type === "INCOME" ? inBy : outBy, r.paymentMethod, r._sum.amountCents);
   for (const r of transfersOut) add(outBy, r.fromAccountId, r._sum.amountCents);
   for (const r of transfersIn) add(inBy, r.toAccountId, r._sum.amountCents);
+  for (const r of capitalMoves)
+    add(r.type === "CONTRIBUTION" ? inBy : outBy, r.paymentMethod, r._sum.amountCents);
 
   return accounts.map((a) => {
     const inCents = inBy.get(a.id) ?? 0;
     const outCents = outBy.get(a.id) ?? 0;
     return { ...a, inCents, outCents, balanceCents: a.openingBalanceCents + inCents - outCents };
+  });
+}
+
+// Each partner's capital: contributions − withdrawals (see CapitalEntry).
+export async function getPartnerCapital() {
+  const [partners, sums] = await Promise.all([
+    db.partner.findMany({ orderBy: { createdAt: "asc" } }),
+    db.capitalEntry.groupBy({ by: ["partnerId", "type"], _sum: { amountCents: true } }),
+  ]);
+  return partners.map((p) => {
+    const added = sums
+      .filter((s) => s.partnerId === p.id && s.type === "CONTRIBUTION")
+      .reduce((t, s) => t + (s._sum.amountCents ?? 0), 0);
+    const withdrawn = sums
+      .filter((s) => s.partnerId === p.id && s.type === "WITHDRAWAL")
+      .reduce((t, s) => t + (s._sum.amountCents ?? 0), 0);
+    return { ...p, addedCents: added, withdrawnCents: withdrawn, capitalCents: added - withdrawn };
   });
 }

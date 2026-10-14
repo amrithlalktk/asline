@@ -73,6 +73,7 @@ model User {
   sales               Sale[]
   forwardSales        ForwardSale[]
   accountTransfers    AccountTransfer[]
+  capitalEntries      CapitalEntry[]
   stockAdjustments    StockAdjustment[]
   purchases           Purchase[]
   advancePayments     PartyPayment[]
@@ -127,6 +128,7 @@ model Account {
   purchasePayments    PurchasePayment[]
   transfersOut        AccountTransfer[] @relation("TransferFrom")
   transfersIn         AccountTransfer[] @relation("TransferTo")
+  capitalEntries      CapitalEntry[]
 }
 
 // Money moved between the business's own accounts — a cash withdrawal
@@ -146,6 +148,45 @@ model AccountTransfer {
   userId        String
   createdAt     DateTime @default(now())
 
+  @@index([date])
+}
+
+enum CapitalEntryType {
+  CONTRIBUTION // partner puts money into the business
+  WITHDRAWAL // partner takes money out (drawings)
+}
+
+// A partner/owner of the business. Their capital balance is the sum of
+// their contributions minus their withdrawals (see CapitalEntry).
+model Partner {
+  id             String         @id @default(cuid())
+  name           String         @unique
+  phone          String?
+  notes          String?
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  capitalEntries CapitalEntry[]
+}
+
+// Capital a partner adds to, or withdraws from, the business — through one
+// of the business's accounts (cash/bank), so that account's balance moves.
+// Not income or expense: it changes owner's equity directly.
+model CapitalEntry {
+  id            String           @id @default(cuid())
+  partner       Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  partnerId     String
+  type          CapitalEntryType
+  date          DateTime
+  amountCents   Int
+  // Account the money came into / went out of (Account id).
+  paymentMethod String           @default("CASH")
+  account       Account          @relation(fields: [paymentMethod], references: [id], onDelete: Restrict)
+  notes         String?
+  recordedBy    User             @relation(fields: [userId], references: [id])
+  userId        String
+  createdAt     DateTime         @default(now())
+
+  @@index([partnerId])
   @@index([date])
 }
 
