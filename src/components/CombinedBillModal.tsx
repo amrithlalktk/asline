@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Modal from "@/components/Modal";
 import { formatBillNumber, formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { displayUnit } from "@/lib/units";
 import { itemAverages } from "@/lib/itemAverages";
+import AddGroupSupplierForm from "@/components/AddGroupSupplierForm";
+import type { Item, Party } from "@/lib/types";
 
 type GroupPurchase = {
   id: string;
   billNumber: number;
   totalCents: number;
   paidCents: number;
+  partyId: string | null;
   party: { name: string } | null;
   items: {
     id: string;
@@ -39,21 +42,34 @@ type Group = {
 export default function CombinedBillModal({
   groupId,
   canDelete,
+  parties,
+  items,
+  startAdding = false,
   onClose,
   onDeleted,
+  onChanged,
 }: {
   groupId: string;
   canDelete: boolean;
+  parties: Party[];
+  items: Item[];
+  // Open straight into "Add a supplier".
+  startAdding?: boolean;
   onClose: () => void;
   onDeleted: () => void;
+  onChanged: () => void;
 }) {
   const [group, setGroup] = useState<Group | null>(null);
+  const [adding, setAdding] = useState(startAdding);
+
+  const loadGroup = useCallback(async () => {
+    const res = await fetch(`/api/purchase-groups/${groupId}`);
+    setGroup(await res.json());
+  }, [groupId]);
 
   useEffect(() => {
-    fetch(`/api/purchase-groups/${groupId}`)
-      .then((res) => res.json())
-      .then(setGroup);
-  }, [groupId]);
+    loadGroup();
+  }, [loadGroup]);
 
   async function handleDelete() {
     if (!group) return;
@@ -130,6 +146,29 @@ export default function CombinedBillModal({
               </div>
             ))}
           </div>
+          {adding ? (
+            <AddGroupSupplierForm
+              groupId={group.id}
+              parties={parties}
+              items={items}
+              excludePartyIds={group.purchases.map((p) => p.partyId).filter((x): x is string => Boolean(x))}
+              onAdded={async () => {
+                setAdding(false);
+                await loadGroup();
+                onChanged();
+              }}
+              onCancel={() => setAdding(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="self-start rounded-md border border-dashed border-black/25 px-3 py-1.5 text-sm hover:border-brand hover:text-brand dark:border-white/25"
+            >
+              + Add supplier to this bill
+            </button>
+          )}
+
           <div>
             <p className="mb-1 text-xs font-medium text-black/50 uppercase dark:text-white/50">
               Items on this bill

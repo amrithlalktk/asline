@@ -144,21 +144,20 @@ export const purchaseSchema = billSchemaBase;
 
 // A combined purchase bill — several suppliers entered together. Each
 // supplier part becomes its own Purchase (see PurchaseGroup).
+// One supplier's part of a combined bill — also used to add a supplier to
+// an existing combined bill.
+export const groupSupplierSchema = z.object({
+  partyId: z.string().min(1, "Choose a supplier for every part"),
+  items: z.array(saleLineSchema).min(1, "Add at least one item for every supplier"),
+  charges: z.array(chargeLineSchema).optional().default([]),
+  paid: z.number().nonnegative().default(0),
+  paymentMethod: accountIdSchema.default("CASH"),
+});
+
 export const purchaseGroupSchema = z.object({
   date: z.string().min(1, "Date is required"),
   notes: z.string().trim().optional().nullable(),
-  suppliers: z
-    .array(
-      z.object({
-        partyId: z.string().min(1, "Choose a supplier for every part"),
-        items: z.array(saleLineSchema).min(1, "Add at least one item for every supplier"),
-        charges: z.array(chargeLineSchema).optional().default([]),
-        paid: z.number().nonnegative().default(0),
-        paymentMethod: accountIdSchema.default("CASH"),
-      })
-    )
-    .min(1, "Add at least one supplier")
-    .max(50),
+  suppliers: z.array(groupSupplierSchema).min(1, "Add at least one supplier").max(50),
   // Costs for the whole combined bill (lorry hire, loading…). Each becomes
   // an expense split across the supplier parts by their value.
   expenses: z

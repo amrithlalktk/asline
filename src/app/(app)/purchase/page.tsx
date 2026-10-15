@@ -47,6 +47,7 @@ export default function PurchasePage() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [combinedOpen, setCombinedOpen] = useState(false);
   const [viewGroupId, setViewGroupId] = useState<string | null>(null);
+  const [addToGroup, setAddToGroup] = useState(false);
   const [openBills, setOpenBills] = useState<Set<string>>(new Set());
   function toggleBill(groupId: string) {
     setOpenBills((prev) => {
@@ -343,8 +344,23 @@ export default function PurchasePage() {
           >
             Print
           </a>
-          <button onClick={() => setViewGroupId(bill.groupId)} className="mr-2 underline underline-offset-4">
+          <button
+            onClick={() => {
+              setAddToGroup(false);
+              setViewGroupId(bill.groupId);
+            }}
+            className="mr-2 underline underline-offset-4"
+          >
             Summary
+          </button>
+          <button
+            onClick={() => {
+              setAddToGroup(true);
+              setViewGroupId(bill.groupId);
+            }}
+            className="mr-2 font-medium text-brand underline underline-offset-4"
+          >
+            + Supplier
           </button>
           <button onClick={() => toggleBill(bill.groupId)} className="underline underline-offset-4">
             {open ? "Hide entries" : "Entries"}
@@ -520,6 +536,10 @@ export default function PurchasePage() {
         <CombinedBillModal
           groupId={viewGroupId}
           canDelete={canDelete}
+          parties={parties}
+          items={items}
+          startAdding={addToGroup}
+          onChanged={loadPurchases}
           onClose={() => setViewGroupId(null)}
           onDeleted={() => {
             setViewGroupId(null);
