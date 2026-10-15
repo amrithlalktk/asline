@@ -5,6 +5,7 @@ import Modal from "@/components/Modal";
 import { formatDate } from "@/lib/date";
 import { displayUnit } from "@/lib/units";
 import type { Item } from "@/lib/types";
+import DateInput from "@/components/DateInput";
 
 type Adjustment = {
   id: string;
@@ -147,7 +148,7 @@ export default function StockAdjustModal({
           )}
 
           <div className="grid grid-cols-2 gap-2">
-            <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={input} />
+            <DateInput required value={date} onChange={(e) => setDate(e.target.value)} className={input} />
             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (e.g. physical count, moisture loss)" className={input} />
           </div>
 

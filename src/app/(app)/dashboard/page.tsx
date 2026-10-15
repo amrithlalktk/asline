@@ -209,7 +209,8 @@ export default async function DashboardPage() {
     const d = new Date(fourteenDaysAgo.getTime() + i * 86400000);
     const key = d.toISOString().slice(0, 10);
     byDay.set(key, {
-      label: d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" }),
+      // Fixed "5 Oct" style, not the browser's language order.
+      label: `${d.getUTCDate()} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()]}`,
       saleCents: 0,
       purchaseCents: 0,
     });

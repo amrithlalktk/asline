@@ -6,6 +6,7 @@ import { formatBillNumber, formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { displayUnit } from "@/lib/units";
 import type { Item, Party } from "@/lib/types";
+import DateInput from "@/components/DateInput";
 
 export type ForwardSale = {
   id: string;
@@ -153,7 +154,7 @@ export default function ForwardSalesPanel({
           <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
             <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
               Date
-              <input type="date" required value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} className={input} />
+              <DateInput required value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} className={input} />
             </label>
             <label className="col-span-2 flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
               Party
@@ -179,7 +180,7 @@ export default function ForwardSalesPanel({
             </label>
             <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
               Due by (optional)
-              <input type="date" value={draft.dueDate} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} className={input} />
+              <DateInput value={draft.dueDate} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} className={input} />
             </label>
             <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
               Quantity

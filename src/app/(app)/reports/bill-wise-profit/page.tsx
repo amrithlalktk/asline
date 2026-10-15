@@ -10,6 +10,7 @@ import { useDefaultDateRange } from "@/lib/reportHelpers";
 import type { Item, Sale } from "@/lib/types";
 import EmailPdfButton from "@/components/EmailPdfButton";
 import { billExpensesCents, linkedProfit } from "@/lib/saleProfit";
+import DateInput from "@/components/DateInput";
 
 type ProfitRow = {
   billNumber: number;
@@ -142,8 +143,7 @@ export default function BillWiseProfitPage() {
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">From</label>
-            <input
-              type="date"
+            <DateInput
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               className="rounded-md border border-black/15 px-2 py-1 text-sm dark:border-white/15 dark:bg-transparent"
@@ -151,8 +151,7 @@ export default function BillWiseProfitPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">To</label>
-            <input
-              type="date"
+            <DateInput
               value={to}
               onChange={(e) => setTo(e.target.value)}
               className="rounded-md border border-black/15 px-2 py-1 text-sm dark:border-white/15 dark:bg-transparent"

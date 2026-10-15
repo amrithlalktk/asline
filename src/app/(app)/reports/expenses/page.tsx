@@ -13,6 +13,7 @@ import { accountName, type Category, type Expense, type PaymentMethod } from "@/
 import EmailPdfButton from "@/components/EmailPdfButton";
 import AccountOptions from "@/components/AccountOptions";
 import { useAccounts } from "@/lib/useAccounts";
+import DateInput from "@/components/DateInput";
 
 type ReportData = {
   totalExpenseCents: number;
@@ -93,8 +94,7 @@ export default function ExpenseReportPage() {
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">From</label>
-            <input
-              type="date"
+            <DateInput
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               className="rounded-md border border-black/15 px-2 py-1 text-sm dark:border-white/15 dark:bg-transparent"
@@ -102,8 +102,7 @@ export default function ExpenseReportPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">To</label>
-            <input
-              type="date"
+            <DateInput
               value={to}
               onChange={(e) => setTo(e.target.value)}
               className="rounded-md border border-black/15 px-2 py-1 text-sm dark:border-white/15 dark:bg-transparent"

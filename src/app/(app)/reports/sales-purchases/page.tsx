@@ -21,6 +21,7 @@ import {
 import type { Item, Party, Purchase, Sale } from "@/lib/types";
 import BillPreviewModal, { type PreviewBillType } from "@/components/BillPreviewModal";
 import EmailPdfButton from "@/components/EmailPdfButton";
+import DateInput from "@/components/DateInput";
 
 export default function SalesPurchasesReportPage() {
   const { from: txFrom, to: txTo, setFrom: setTxFrom, setTo: setTxTo, ready } = useDefaultDateRange();
@@ -206,8 +207,7 @@ export default function SalesPurchasesReportPage() {
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">From</label>
-            <input
-              type="date"
+            <DateInput
               value={txFrom}
               onChange={(e) => setTxFrom(e.target.value)}
               className="rounded-md border border-black/15 px-2 py-1 text-sm dark:border-white/15 dark:bg-transparent"
@@ -215,8 +215,7 @@ export default function SalesPurchasesReportPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">To</label>
-            <input
-              type="date"
+            <DateInput
               value={txTo}
               onChange={(e) => setTxTo(e.target.value)}
               className="rounded-md border border-black/15 px-2 py-1 text-sm dark:border-white/15 dark:bg-transparent"

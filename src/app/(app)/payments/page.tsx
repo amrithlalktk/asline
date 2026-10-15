@@ -9,6 +9,7 @@ import Card from "@/components/Card";
 import RecordPaymentForm, { type PayType } from "@/components/RecordPaymentForm";
 import BillPreviewModal, { type PreviewBillType } from "@/components/BillPreviewModal";
 import { useAccounts } from "@/lib/useAccounts";
+import DateInput from "@/components/DateInput";
 
 const inputClass =
   "rounded-md border border-black/15 px-2 py-1.5 text-sm dark:border-white/15 dark:bg-transparent";
@@ -121,8 +122,7 @@ export default function PaymentsPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">From</label>
-            <input
-              type="date"
+            <DateInput
               value={filterFrom}
               onChange={(e) => {
                 setHistoryPage(1);
@@ -133,8 +133,7 @@ export default function PaymentsPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">To</label>
-            <input
-              type="date"
+            <DateInput
               value={filterTo}
               onChange={(e) => {
                 setHistoryPage(1);

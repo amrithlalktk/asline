@@ -11,6 +11,7 @@ import Card from "@/components/Card";
 import ExpenseForm from "@/components/ExpenseForm";
 import SearchInput from "@/components/SearchInput";
 import { expenseBillsLabel } from "@/lib/reportHelpers";
+import DateInput from "@/components/DateInput";
 
 export default function ExpensesPage() {
   const searchParams = useSearchParams();
@@ -116,8 +117,7 @@ export default function ExpensesPage() {
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">From</label>
-            <input
-              type="date"
+            <DateInput
               value={from}
               onChange={(e) => {
                 setPage(1);
@@ -128,8 +128,7 @@ export default function ExpensesPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-black/60 dark:text-white/60">To</label>
-            <input
-              type="date"
+            <DateInput
               value={to}
               onChange={(e) => {
                 setPage(1);

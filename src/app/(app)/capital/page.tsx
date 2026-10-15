@@ -8,6 +8,7 @@ import AccountOptions from "@/components/AccountOptions";
 import { formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { invalidateAccounts, useAccounts } from "@/lib/useAccounts";
+import DateInput from "@/components/DateInput";
 
 type Partner = {
   id: string;
@@ -227,7 +228,7 @@ export default function CapitalPage() {
               </label>
               <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
                 Date
-                <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={input} />
+                <DateInput required value={date} onChange={(e) => setDate(e.target.value)} className={input} />
               </label>
               <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-black/60 dark:text-white/60">
                 Note (optional)

@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { companyLines, fetchCompany, type CompanyInfo } from "@/lib/company";
+import { formatDateTime } from "@/lib/date";
 
 function escapeCsv(v: string) {
   return `"${v.replace(/"/g, '""')}"`;
@@ -37,7 +38,7 @@ export async function downloadReportCsv({
     [company.name],
     ...companyLines(company).map((line) => [line]),
     [title],
-    [`Generated on ${new Date().toLocaleString()} by ${generatedBy}`],
+    [`Generated on ${formatDateTime()} by ${generatedBy}`],
     [],
   ];
   const csv = [...preamble, header, ...rows]
@@ -86,7 +87,7 @@ export function buildReportPdfDoc({
   doc.text(title, marginX, y);
   y += 6;
   doc.setFontSize(8);
-  doc.text(`Generated on ${new Date().toLocaleString()} by ${generatedBy}`, marginX, y);
+  doc.text(`Generated on ${formatDateTime()} by ${generatedBy}`, marginX, y);
   y += 5;
 
   autoTable(doc, {

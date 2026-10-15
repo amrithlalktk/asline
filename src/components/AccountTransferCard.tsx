@@ -6,6 +6,7 @@ import Card from "@/components/Card";
 import { formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import type { Account } from "@/lib/types";
+import DateInput from "@/components/DateInput";
 
 type Transfer = {
   id: string;
@@ -177,7 +178,7 @@ export default function AccountTransferCard({
             </label>
             <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
               Date
-              <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={input} />
+              <DateInput required value={date} onChange={(e) => setDate(e.target.value)} className={input} />
             </label>
             <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-black/60 dark:text-white/60">
               Note (optional)

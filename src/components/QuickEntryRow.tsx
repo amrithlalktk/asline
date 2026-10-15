@@ -7,6 +7,7 @@ import SuggestInput from "@/components/SuggestInput";
 import type { ForwardSale } from "@/components/ForwardSalesPanel";
 import { formatBillNumber, formatCents } from "@/lib/money";
 import { displayUnit } from "@/lib/units";
+import DateInput from "@/components/DateInput";
 
 // No width utility here on purpose — each input below sets its own width
 // explicitly. Mixing a shared "w-full" with a per-field fixed width (e.g. on
@@ -265,8 +266,7 @@ export default function QuickEntryRow({
         )}
       </td>
       <td className="p-1 align-top">
-        <input
-          type="date"
+        <DateInput
           value={date}
           onChange={(e) => setDate(e.target.value)}
           onKeyDown={handleKeyDown}

@@ -6,6 +6,7 @@ import { formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { downloadReportCsv, downloadReportPdf } from "@/lib/reportExport";
 import type { Account } from "@/lib/types";
+import DateInput from "@/components/DateInput";
 
 type Row = {
   key: string;
@@ -94,11 +95,11 @@ const AccountHistoryCard = forwardRef<HTMLDivElement, {
           </label>
           <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
             From
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={input} />
+            <DateInput value={from} onChange={(e) => setFrom(e.target.value)} className={input} />
           </label>
           <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
             To
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={input} />
+            <DateInput value={to} onChange={(e) => setTo(e.target.value)} className={input} />
           </label>
           <div className="flex gap-1 text-xs">
             {(

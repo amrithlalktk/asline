@@ -7,6 +7,7 @@ import EmailPdfButton from "@/components/EmailPdfButton";
 import { formatCents } from "@/lib/money";
 import { displayUnit } from "@/lib/units";
 import { downloadReportCsv, downloadReportPdf } from "@/lib/reportExport";
+import { formatDate } from "@/lib/date";
 
 type Row = { name: string; cents: number };
 type Sheet = {
@@ -89,7 +90,7 @@ export default function BalanceSheetPage() {
       .then((d) => setGeneratedBy(d.name ?? ""));
   }, [load]);
 
-  const asOf = sheet ? new Date(sheet.asOf).toLocaleDateString() : "";
+  const asOf = sheet ? formatDate(sheet.asOf) : "";
   const title = `Balance Sheet (as of ${asOf})`;
 
   function rows(): string[][] {

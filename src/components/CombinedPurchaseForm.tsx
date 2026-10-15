@@ -8,6 +8,7 @@ import AccountOptions from "@/components/AccountOptions";
 import { useAccounts } from "@/lib/useAccounts";
 import { autoSplit } from "@/lib/split";
 import type { Category, Item, Party } from "@/lib/types";
+import DateInput from "@/components/DateInput";
 
 type Line = { itemId: string; quantity: string; price: string; taxPercent: string; ffaGrade: string };
 type ExpenseRow = { description: string; amount: string; categoryId: string; paymentMethod: string };
@@ -149,7 +150,7 @@ export default function CombinedPurchaseForm({
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-black/60 dark:text-white/60">Date</label>
-          <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={cell} />
+          <DateInput required value={date} onChange={(e) => setDate(e.target.value)} className={cell} />
         </div>
         <div className="flex min-w-48 flex-1 flex-col gap-1">
           <label className="text-xs text-black/60 dark:text-white/60">Notes (optional)</label>

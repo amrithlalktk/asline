@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types";
 import AccountOptions from "@/components/AccountOptions";
 import { useAccounts } from "@/lib/useAccounts";
+import DateInput from "@/components/DateInput";
 
 export type PayType = "SALE" | "PURCHASE" | "ADVANCE";
 
@@ -364,8 +365,7 @@ export default function RecordPaymentForm({
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-black/60 dark:text-white/60">Date</label>
-          <input
-            type="date"
+          <DateInput
             required
             value={date}
             onChange={(e) => setDate(e.target.value)}
