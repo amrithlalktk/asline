@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Banknote, Landmark } from "lucide-react";
 import Card from "@/components/Card";
 import AccountTransferCard from "@/components/AccountTransferCard";
-import AccountHistoryCard from "@/components/AccountHistoryCard";
+import Link from "next/link";
 import { formatCents } from "@/lib/money";
 import { invalidateAccounts } from "@/lib/useAccounts";
 import { CASH_ACCOUNT_ID, type Account, type AccountType } from "@/lib/types";
@@ -26,13 +26,6 @@ export default function AccountsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(emptyDraft);
   const [editError, setEditError] = useState<string | null>(null);
-  // Account whose history is shown (defaults to the first account).
-  const [historyId, setHistoryId] = useState("");
-  const historyRef = useRef<HTMLDivElement>(null);
-  function showHistory(id: string) {
-    setHistoryId(id);
-    historyRef.current?.scrollIntoView({ behavior: "smooth" });
-  }
 
   async function load() {
     const res = await fetch("/api/accounts");
@@ -127,12 +120,20 @@ export default function AccountsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
         <h1 className="text-lg font-semibold">Accounts</h1>
         <p className="mt-1 text-sm text-black/60 dark:text-white/60">
           Set the opening balance of your cash and each bank account. Balances update automatically
           from every payment received or made, advance, and expense recorded against the account.
         </p>
+        </div>
+        <Link
+          href="/accounts/history"
+          className="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+        >
+          Transaction history
+        </Link>
       </div>
 
       <Card title="Add account">
@@ -226,9 +227,12 @@ export default function AccountsPage() {
                         {formatCents(balance)}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <button onClick={() => showHistory(a.id)} className="mr-3 font-medium text-brand underline underline-offset-4">
+                        <Link
+                          href={`/accounts/history?account=${a.id}`}
+                          className="mr-3 font-medium text-brand underline underline-offset-4"
+                        >
                           History
-                        </button>
+                        </Link>
                         <button onClick={() => startEdit(a)} className="mr-3 underline underline-offset-4">
                           Edit
                         </button>
@@ -328,14 +332,6 @@ export default function AccountsPage() {
           </table>
         </div>
       </Card>
-      {accounts.length > 0 && (
-        <AccountHistoryCard
-          ref={historyRef}
-          accounts={accounts}
-          accountId={historyId || accounts[0].id}
-          onAccountChange={setHistoryId}
-        />
-      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   HandCoins,
   CalendarClock,
   ChevronDown,
+  History as HistoryIcon,
   ReceiptText,
   X,
 } from "lucide-react";
@@ -55,6 +56,10 @@ const SUB_LINKS: Record<
   "/sale": [
     { href: "/sale", label: "Sales", icon: ReceiptText, tab: null },
     { href: "/sale?tab=forward", label: "Forward sales", icon: CalendarClock, tab: "forward" },
+  ],
+  "/accounts": [
+    { href: "/accounts", label: "Accounts", icon: Landmark, tab: null },
+    { href: "/accounts/history", label: "Transaction history", icon: HistoryIcon, tab: null },
   ],
 };
 
@@ -162,8 +167,11 @@ export default function Sidebar({
               );
             }
             const open = openGroups.has(link.href);
+            // The sub-page whose path (and ?tab=) matches the current URL.
+            const pathOf = (href: string) => href.split("?")[0];
             const activeSub = inSection
-              ? (subs.find((s) => s.tab === tab) ?? subs.find((s) => s.tab === null))
+              ? (subs.find((s) => pathOf(s.href) === pathname && s.tab === tab) ??
+                subs.find((s) => pathOf(s.href) === pathname && s.tab === null))
               : undefined;
             return (
               <div key={link.href} className="flex flex-col gap-0.5">
