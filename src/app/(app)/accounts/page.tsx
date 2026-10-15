@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Banknote, Landmark } from "lucide-react";
 import Card from "@/components/Card";
 import AccountTransferCard from "@/components/AccountTransferCard";
+import AccountHistoryCard from "@/components/AccountHistoryCard";
 import { formatCents } from "@/lib/money";
 import { invalidateAccounts } from "@/lib/useAccounts";
 import { CASH_ACCOUNT_ID, type Account, type AccountType } from "@/lib/types";
@@ -25,6 +26,13 @@ export default function AccountsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(emptyDraft);
   const [editError, setEditError] = useState<string | null>(null);
+  // Account whose history is shown (defaults to the first account).
+  const [historyId, setHistoryId] = useState("");
+  const historyRef = useRef<HTMLDivElement>(null);
+  function showHistory(id: string) {
+    setHistoryId(id);
+    historyRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
 
   async function load() {
     const res = await fetch("/api/accounts");
@@ -218,6 +226,9 @@ export default function AccountsPage() {
                         {formatCents(balance)}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button onClick={() => showHistory(a.id)} className="mr-3 font-medium text-brand underline underline-offset-4">
+                          History
+                        </button>
                         <button onClick={() => startEdit(a)} className="mr-3 underline underline-offset-4">
                           Edit
                         </button>
@@ -317,6 +328,14 @@ export default function AccountsPage() {
           </table>
         </div>
       </Card>
+      {accounts.length > 0 && (
+        <AccountHistoryCard
+          ref={historyRef}
+          accounts={accounts}
+          accountId={historyId || accounts[0].id}
+          onAccountChange={setHistoryId}
+        />
+      )}
     </div>
   );
 }
