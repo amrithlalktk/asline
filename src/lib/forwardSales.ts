@@ -5,7 +5,7 @@ import type { Prisma } from "@prisma/client";
 // against each, and matching new sale lines to them.
 
 export const FORWARD_INCLUDE = {
-  party: { select: { id: true, name: true } },
+  party: { select: { id: true, name: true, email: true } },
   item: { select: { id: true, name: true, unit: true } },
   deliveries: {
     select: {

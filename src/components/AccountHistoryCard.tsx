@@ -2,6 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useState } from "react";
 import Card from "@/components/Card";
+import EmailPdfButton from "@/components/EmailPdfButton";
 import { formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { downloadReportCsv, downloadReportPdf } from "@/lib/reportExport";
@@ -139,6 +140,12 @@ const AccountHistoryCard = forwardRef<HTMLDivElement, {
             >
               Export PDF
             </button>
+            <EmailPdfButton
+              endpoint="/api/reports/email-pdf"
+              body={data ? { filename: `${fileBase}.pdf`, title, header: HEADER, rows: rows() } : null}
+              disabled={!data}
+              className="rounded-md border border-black/15 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-white/15"
+            />
           </div>
         </div>
 

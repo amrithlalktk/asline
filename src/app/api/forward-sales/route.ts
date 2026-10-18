@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { forwardSaleSchema } from "@/lib/validation";
-import { toCents } from "@/lib/money";
+import { formatBillNumber, toCents } from "@/lib/money";
 import { FORWARD_INCLUDE, summarizeForward } from "@/lib/forwardSales";
 import type { Prisma } from "@prisma/client";
 
@@ -37,10 +37,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const d = parsed.data;
+  if (d.number && (await db.forwardSale.count({ where: { number: d.number } })) > 0) {
+    return NextResponse.json({ error: `Fwd #${formatBillNumber(d.number)} is already used — pick a different number.` }, { status: 409 });
+  }
   const last = await db.forwardSale.aggregate({ _max: { number: true } });
   const created = await db.forwardSale.create({
     data: {
-      number: (last._max.number ?? 0) + 1,
+      number: d.number ?? (last._max.number ?? 0) + 1,
       date: new Date(d.date),
       partyId: d.partyId,
       itemId: d.itemId,

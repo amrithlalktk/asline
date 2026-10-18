@@ -223,6 +223,8 @@ export const forwardSaleSchema = z.object({
   dueDate: z.string().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   closed: z.boolean().optional(),
+  // Fwd # — omit on create for the next number; any free number when editing.
+  number: z.number().int().positive("Number must be a positive number").optional(),
 });
 
 // A stock correction on an item: either "the stock is now N" (SET — the

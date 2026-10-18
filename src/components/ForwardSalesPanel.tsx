@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Card from "@/components/Card";
+import EmailPdfButton from "@/components/EmailPdfButton";
 import { formatBillNumber, formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { displayUnit } from "@/lib/units";
@@ -13,7 +14,7 @@ export type ForwardSale = {
   number: number;
   date: string;
   dueDate: string | null;
-  party: { id: string; name: string };
+  party: { id: string; name: string; email?: string | null };
   item: { id: string; name: string; unit: string };
   quantity: number;
   rateCents: number;
@@ -26,9 +27,9 @@ export type ForwardSale = {
   deliveries: { id: string; quantity: number; lineTotalCents: number; sale: { id: string; billNumber: number; date: string } }[];
 };
 
-type Draft = { date: string; partyId: string; itemId: string; quantity: string; rate: string; dueDate: string; notes: string };
+type Draft = { number: string; date: string; partyId: string; itemId: string; quantity: string; rate: string; dueDate: string; notes: string };
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyDraft = (): Draft => ({ date: today(), partyId: "", itemId: "", quantity: "", rate: "", dueDate: "", notes: "" });
+const emptyDraft = (): Draft => ({ number: "", date: today(), partyId: "", itemId: "", quantity: "", rate: "", dueDate: "", notes: "" });
 
 const input =
   "rounded-md border border-black/15 px-2 py-1.5 text-sm dark:border-white/15 dark:bg-transparent";
@@ -40,6 +41,34 @@ const STATUS_STYLE = {
   CLOSED: "bg-black/10 text-black/60 dark:bg-white/10 dark:text-white/60",
 } as const;
 const STATUS_LABEL = { OPEN: "Open", COMPLETED: "Delivered", CLOSED: "Closed" } as const;
+
+// The forward sale as a two-column PDF (terms, progress, each delivery).
+function forwardPdf(f: ForwardSale) {
+  const unit = displayUnit(f.item.unit);
+  const rows: string[][] = [
+    ["Party", f.party.name],
+    ["Item", f.item.name],
+    ["Agreed on", formatDate(f.date)],
+    ...(f.dueDate ? [["Due by", formatDate(f.dueDate)]] : []),
+    ["Agreed quantity", `${qty(f.quantity)} ${unit}`],
+    ["Agreed rate", formatCents(f.rateCents)],
+    ["Value", formatCents(f.valueCents)],
+    ["Delivered", `${qty(f.deliveredQty)} ${unit}`],
+    ["Pending", `${qty(f.pendingQty)} ${unit}`],
+    ["Status", STATUS_LABEL[f.status]],
+    ...(f.notes ? [["Notes", f.notes]] : []),
+    ...f.deliveries.map((d) => [
+      `Delivery — Sale #${formatBillNumber(d.sale.billNumber)} (${formatDate(d.sale.date)})`,
+      `${qty(d.quantity)} ${unit} · ${formatCents(d.lineTotalCents)}`,
+    ]),
+  ];
+  return {
+    filename: `forward_sale_${formatBillNumber(f.number)}.pdf`,
+    title: `Forward Sale #${formatBillNumber(f.number)} — ${f.party.name}`,
+    header: ["Detail", ""],
+    rows,
+  };
+}
 
 // Forward sales: agree now to sell a quantity to a party at a fixed rate,
 // deliver over later sale bills. Each sale of that item to that party is
@@ -95,6 +124,7 @@ export default function ForwardSalesPanel({
           rate: Number(draft.rate) || 0,
           dueDate: draft.dueDate || null,
           notes: draft.notes || null,
+          ...(draft.number.trim() ? { number: Number(draft.number) } : {}),
         }),
       });
       const data = await res.json();
@@ -114,6 +144,7 @@ export default function ForwardSalesPanel({
     setEditingId(f.id);
     setError(null);
     setDraft({
+      number: String(f.number),
       date: f.date.slice(0, 10),
       partyId: f.party.id,
       itemId: f.item.id,
@@ -151,7 +182,20 @@ export default function ForwardSalesPanel({
     <div className="flex flex-col gap-4">
       <Card title={editingId ? "Edit forward sale" : "New forward sale"}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-7">
+            <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
+              Fwd #{!editingId && <span className="text-black/40"> (blank = next)</span>}
+              <input
+                type="number"
+                min="1"
+                step="1"
+                required={Boolean(editingId)}
+                placeholder={editingId ? undefined : "Auto"}
+                value={draft.number}
+                onChange={(e) => setDraft({ ...draft, number: e.target.value })}
+                className={input}
+              />
+            </label>
             <label className="flex flex-col gap-1 text-xs text-black/60 dark:text-white/60">
               Date
               <DateInput required value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} className={input} />
@@ -307,6 +351,13 @@ export default function ForwardSalesPanel({
                         <button onClick={() => setOpenId(openId === f.id ? null : f.id)} className="mr-2 underline underline-offset-4">
                           Deliveries ({f.deliveries.length})
                         </button>
+                        <EmailPdfButton
+                          endpoint="/api/reports/email-pdf"
+                          body={forwardPdf(f)}
+                          defaultRecipient={f.party.email ? { name: f.party.name, email: f.party.email } : null}
+                          label="Email"
+                          className="mr-2 underline underline-offset-4"
+                        />
                         <button onClick={() => startEdit(f)} className="mr-2 underline underline-offset-4">
                           Edit
                         </button>

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { isAdminRole } from "@/lib/types";
 import { forwardSaleSchema } from "@/lib/validation";
-import { toCents } from "@/lib/money";
+import { formatBillNumber, toCents } from "@/lib/money";
 import { FORWARD_INCLUDE, summarizeForward } from "@/lib/forwardSales";
 
 export async function PATCH(
@@ -39,6 +39,10 @@ export async function PATCH(
     );
   }
 
+  if (d.number !== undefined && (await db.forwardSale.count({ where: { number: d.number, id: { not: id } } })) > 0) {
+    return NextResponse.json({ error: `Fwd #${formatBillNumber(d.number)} is already used — pick a different number.` }, { status: 409 });
+  }
+
   const updated = await db.forwardSale.update({
     where: { id },
     data: {
@@ -50,6 +54,7 @@ export async function PATCH(
       ...(d.dueDate !== undefined ? { dueDate: d.dueDate ? new Date(d.dueDate) : null } : {}),
       ...(d.notes !== undefined ? { notes: d.notes || null } : {}),
       ...(d.closed !== undefined ? { closed: d.closed } : {}),
+      ...(d.number !== undefined ? { number: d.number } : {}),
     },
     include: FORWARD_INCLUDE,
   });
