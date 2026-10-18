@@ -12,7 +12,8 @@ import QuickEntryRow from "@/components/QuickEntryRow";
 import PaymentHistory from "@/components/PaymentHistory";
 import PaymentStatusIcon from "@/components/PaymentStatusIcon";
 import SearchInput from "@/components/SearchInput";
-import EmailPdfButton from "@/components/EmailPdfButton";
+import RowActions, { rowButton, rowButtonPrimary, useRowEmail } from "@/components/RowActions";
+import BillPreviewModal from "@/components/BillPreviewModal";
 import AddFfaModal from "@/components/AddFfaModal";
 import SaleProfitModal from "@/components/SaleProfitModal";
 import ForwardSalesPanel, { type ForwardSale } from "@/components/ForwardSalesPanel";
@@ -38,6 +39,8 @@ export default function SalePage() {
 
   const [editing, setEditing] = useState<Sale | undefined>(undefined);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [summaryId, setSummaryId] = useState<string | null>(null);
+  const { emailPopover, openEmail } = useRowEmail();
   const [ffaSale, setFfaSale] = useState<Sale | null>(null);
   const [profitSaleId, setProfitSaleId] = useState<string | null>(null);
   // Sub-tabs: the sales register, and forward sales (agreed now, delivered
@@ -217,14 +220,14 @@ export default function SalePage() {
                     Date {sortBy === "date" && (sortDir === "desc" ? "↓" : "↑")}
                   </button>
                 </th>
-                <th className="w-36 px-4 py-3">Party</th>
-                <th className="w-36 px-4 py-3">Item</th>
-                <th className="w-20 px-4 py-3 text-center">Qty</th>
+                <th className="w-28 px-4 py-3">Party</th>
+                <th className="w-28 px-4 py-3">Item</th>
+                <th className="w-16 px-4 py-3 text-center">Qty</th>
                 <th className="w-24 px-4 py-3">Price</th>
-                <th className="w-24 px-4 py-3 text-center">FFA</th>
-                <th className="w-20 px-4 py-3 text-center">Tax %</th>
-                <th className="w-24 px-4 py-3 text-right">Total</th>
-                <th className="w-40 px-4 py-3"></th>
+                <th className="w-20 px-2 py-3 text-center">FFA</th>
+                <th className="w-16 px-2 py-3 text-center whitespace-nowrap">Tax %</th>
+                <th className="w-32 px-4 py-3 text-right">Total</th>
+                <th className="w-56 px-3 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -316,7 +319,7 @@ export default function SalePage() {
                         })}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-2 py-3 text-center whitespace-nowrap">
                       <div className="flex flex-col gap-0.5">
                         {/* The grade often arrives days after the bill — a
                             graded line opens the dialog to change it; an
@@ -353,7 +356,7 @@ export default function SalePage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-2 py-3 text-center whitespace-nowrap">
                       <div className="flex flex-col gap-0.5">
                         {sale.items.map((l) => (
                           <span key={l.id}>{l.taxPercent > 0 ? `${l.taxPercent}%` : "—"}</span>
@@ -384,40 +387,36 @@ export default function SalePage() {
                           : `${profit.profitCents >= 0 ? "Profit" : "Loss"} ${formatCents(Math.abs(profit.profitCents))}`}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <a
-                        href={`/print/sale/${sale.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mr-2 underline underline-offset-4"
+                    <td className="px-3 py-3 text-right whitespace-nowrap">
+                      <RowActions
+                        items={[
+                          { label: "Edit", onSelect: () => openEdit(sale) },
+                          { label: "Print", href: `/print/sale/${sale.id}` },
+                          {
+                            label: "Email",
+                            onSelect: (anchor) =>
+                              openEmail({
+                                endpoint: `/api/print/sale/${sale.id}/email`,
+                                defaultRecipient: sale.party?.email
+                                  ? { name: sale.party.name, email: sale.party.email }
+                                  : null,
+                                anchor,
+                              }),
+                          },
+                          { label: "Delete", danger: true, hidden: !canDelete, onSelect: () => handleDelete(sale) },
+                        ]}
                       >
-                        Print
-                      </a>
-                      <button
-                        onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
-                        className="mr-2 underline underline-offset-4"
-                      >
-                        Payments
-                      </button>
-                      <EmailPdfButton
-                        endpoint={`/api/print/sale/${sale.id}/email`}
-                        defaultRecipient={
-                          sale.party?.email ? { name: sale.party.name, email: sale.party.email } : null
-                        }
-                        label="Email"
-                        className="mr-2 underline underline-offset-4 disabled:opacity-40"
-                      />
-                      <button onClick={() => openEdit(sale)} className="mr-2 underline underline-offset-4">
-                        Edit
-                      </button>
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDelete(sale)}
-                          className="text-[#d03b3b] underline underline-offset-4"
-                        >
-                          Delete
+                        <button onClick={() => setSummaryId(sale.id)} className={rowButtonPrimary}>
+                          Summary
                         </button>
-                      )}
+                        <button
+                          onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
+                          className={rowButton}
+                          aria-expanded={expandedId === sale.id}
+                        >
+                          Payments
+                        </button>
+                      </RowActions>
                     </td>
                   </tr>
                   {expandedId === sale.id && (
@@ -448,6 +447,9 @@ export default function SalePage() {
           </table>
         </div>
       </Card>
+
+      {summaryId && <BillPreviewModal billType="SALE" billId={summaryId} onClose={() => setSummaryId(null)} />}
+      {emailPopover}
 
       {profitSaleId && (
         <SaleProfitModal

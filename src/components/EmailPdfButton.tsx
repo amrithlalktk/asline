@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 type Candidate = { label: string; email: string; tag: string };
@@ -26,6 +26,9 @@ export default function EmailPdfButton({
   className,
   defaultRecipient,
   label = "Email PDF",
+  hideTrigger = false,
+  anchorEl,
+  onClose,
 }: {
   endpoint: string;
   body?: Record<string, unknown> | null;
@@ -35,8 +38,25 @@ export default function EmailPdfButton({
   defaultRecipient?: { name: string; email: string } | null;
   // Button text — shorter ("Email") on list rows.
   label?: string;
+  // Opened from another control (e.g. a row's More menu): no button of its
+  // own, starts open, positioned off `anchorEl`, and reports when it closes.
+  hideTrigger?: boolean;
+  anchorEl?: HTMLElement | null;
+  onClose?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(hideTrigger);
+  // Stable setter that also tells the opener when the panel closes.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  const setOpen = useCallback((next: boolean | ((o: boolean) => boolean)) => {
+    setOpenState((prev) => {
+      const value = typeof next === "function" ? next(prev) : next;
+      if (prev && !value) setTimeout(() => onCloseRef.current?.(), 0);
+      return value;
+    });
+  }, []);
   const [mounted, setMounted] = useState(false);
   const [rect, setRect] = useState<{ top: number; left: number } | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -90,7 +110,7 @@ export default function EmailPdfButton({
   useEffect(() => {
     if (!open) return;
     function updatePosition() {
-      const el = buttonRef.current;
+      const el = anchorEl ?? buttonRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       const left = Math.max(8, Math.min(r.right - PANEL_WIDTH, window.innerWidth - PANEL_WIDTH - 8));
@@ -103,13 +123,14 @@ export default function EmailPdfButton({
       window.removeEventListener("scroll", updatePosition, true);
       window.removeEventListener("resize", updatePosition);
     };
-  }, [open]);
+  }, [open, anchorEl]);
 
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as Node;
       if (buttonRef.current?.contains(target)) return;
+      if (anchorEl?.contains(target)) return;
       if (panelRef.current?.contains(target)) return;
       setOpen(false);
     }
@@ -122,7 +143,7 @@ export default function EmailPdfButton({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [open, anchorEl, setOpen]);
 
   function toggle(email: string) {
     const key = email.toLowerCase();
@@ -173,6 +194,7 @@ export default function EmailPdfButton({
 
   return (
     <>
+      {!hideTrigger && (
       <button
         ref={buttonRef}
         type="button"
@@ -190,6 +212,7 @@ export default function EmailPdfButton({
       >
         {state === "sent" ? "Sent ✓" : label}
       </button>
+      )}
 
       {mounted &&
         open &&

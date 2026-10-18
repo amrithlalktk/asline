@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Card from "@/components/Card";
-import EmailPdfButton from "@/components/EmailPdfButton";
+import RowActions, { rowButtonPrimary, useRowEmail } from "@/components/RowActions";
 import { formatBillNumber, formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { displayUnit } from "@/lib/units";
@@ -93,6 +93,7 @@ export default function ForwardSalesPanel({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const { emailPopover, openEmail } = useRowEmail();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/forward-sales${filter ? `?status=${filter}` : ""}`);
@@ -348,27 +349,32 @@ export default function ForwardSalesPanel({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <button onClick={() => setOpenId(openId === f.id ? null : f.id)} className="mr-2 underline underline-offset-4">
-                          Deliveries ({f.deliveries.length})
-                        </button>
-                        <EmailPdfButton
-                          endpoint="/api/reports/email-pdf"
-                          body={forwardPdf(f)}
-                          defaultRecipient={f.party.email ? { name: f.party.name, email: f.party.email } : null}
-                          label="Email"
-                          className="mr-2 underline underline-offset-4"
-                        />
-                        <button onClick={() => startEdit(f)} className="mr-2 underline underline-offset-4">
-                          Edit
-                        </button>
-                        <button onClick={() => setClosed(f, !f.closed)} className="mr-2 underline underline-offset-4">
-                          {f.closed ? "Reopen" : "Close"}
-                        </button>
-                        {canDelete && (
-                          <button onClick={() => handleDelete(f)} className="text-[#d03b3b] underline underline-offset-4">
-                            Delete
+                        <RowActions
+                          items={[
+                            { label: "Edit", onSelect: () => startEdit(f) },
+                            {
+                              label: "Email",
+                              onSelect: (anchor) =>
+                                openEmail({
+                                  endpoint: "/api/reports/email-pdf",
+                                  body: forwardPdf(f),
+                                  defaultRecipient: f.party.email ? { name: f.party.name, email: f.party.email } : null,
+                                  anchor,
+                                }),
+                            },
+                            { label: f.closed ? "Reopen" : "Close", onSelect: () => setClosed(f, !f.closed) },
+                            { label: "Delete", danger: true, hidden: !canDelete, onSelect: () => handleDelete(f) },
+                          ]}
+                        >
+                          {/* Payments are taken on the sale bills that deliver it. */}
+                          <button
+                            onClick={() => setOpenId(openId === f.id ? null : f.id)}
+                            className={rowButtonPrimary}
+                            aria-expanded={openId === f.id}
+                          >
+                            Summary ({f.deliveries.length})
                           </button>
-                        )}
+                        </RowActions>
                       </td>
                     </tr>
                     {openId === f.id && (
@@ -410,6 +416,7 @@ export default function ForwardSalesPanel({
           </table>
         </div>
       </Card>
+      {emailPopover}
     </div>
   );
 }

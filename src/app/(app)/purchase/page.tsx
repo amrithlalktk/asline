@@ -15,7 +15,8 @@ import QuickEntryRow from "@/components/QuickEntryRow";
 import PaymentHistory from "@/components/PaymentHistory";
 import PaymentStatusIcon from "@/components/PaymentStatusIcon";
 import SearchInput from "@/components/SearchInput";
-import EmailPdfButton from "@/components/EmailPdfButton";
+import RowActions, { rowButton, rowButtonPrimary, useRowEmail } from "@/components/RowActions";
+import BillPreviewModal from "@/components/BillPreviewModal";
 
 type CombinedBill = {
   kind: "COMBINED";
@@ -45,6 +46,8 @@ export default function PurchasePage() {
 
   const [editing, setEditing] = useState<Purchase | undefined>(undefined);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [summaryId, setSummaryId] = useState<string | null>(null);
+  const { emailPopover, openEmail } = useRowEmail();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [combinedOpen, setCombinedOpen] = useState(false);
   const [viewGroupId, setViewGroupId] = useState<string | null>(null);
@@ -235,39 +238,35 @@ export default function PurchasePage() {
                       {formatCents(purchase.totalCents)}
                     </td>
                     <td className="px-2 py-3 text-right whitespace-nowrap">
-                      <a
-                        href={`/print/purchase/${purchase.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mr-2 underline underline-offset-4"
+                      <RowActions
+                        items={[
+                          { label: "Edit", onSelect: () => openEdit(purchase) },
+                          { label: "Print", href: `/print/purchase/${purchase.id}` },
+                          {
+                            label: "Email",
+                            onSelect: (anchor) =>
+                              openEmail({
+                                endpoint: `/api/print/purchase/${purchase.id}/email`,
+                                defaultRecipient: purchase.party?.email
+                                  ? { name: purchase.party.name, email: purchase.party.email }
+                                  : null,
+                                anchor,
+                              }),
+                          },
+                          { label: "Delete", danger: true, hidden: !canDelete, onSelect: () => handleDelete(purchase) },
+                        ]}
                       >
-                        Print
-                      </a>
-                      <button
-                        onClick={() => setExpandedId(expandedId === purchase.id ? null : purchase.id)}
-                        className="mr-2 underline underline-offset-4"
-                      >
-                        Payments
-                      </button>
-                      <EmailPdfButton
-                        endpoint={`/api/print/purchase/${purchase.id}/email`}
-                        defaultRecipient={
-                          purchase.party?.email ? { name: purchase.party.name, email: purchase.party.email } : null
-                        }
-                        label="Email"
-                        className="mr-2 underline underline-offset-4 disabled:opacity-40"
-                      />
-                      <button onClick={() => openEdit(purchase)} className="mr-2 underline underline-offset-4">
-                        Edit
-                      </button>
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDelete(purchase)}
-                          className="text-[#d03b3b] underline underline-offset-4"
-                        >
-                          Delete
+                        <button onClick={() => setSummaryId(purchase.id)} className={rowButtonPrimary}>
+                          Summary
                         </button>
-                      )}
+                        <button
+                          onClick={() => setExpandedId(expandedId === purchase.id ? null : purchase.id)}
+                          className={rowButton}
+                          aria-expanded={expandedId === purchase.id}
+                        >
+                          Payments
+                        </button>
+                      </RowActions>
                     </td>
                   </tr>
                   {expandedId === purchase.id && (
@@ -345,35 +344,38 @@ export default function PurchasePage() {
         </td>
         <td className="px-2 py-3 text-right whitespace-nowrap font-medium">{formatCents(total)}</td>
         <td className="px-2 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-          <a
-            href={`/print/purchase-group/${bill.groupId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mr-2 underline underline-offset-4"
+          <RowActions
+            items={[
+              {
+                label: "Add supplier",
+                onSelect: () => {
+                  setAddToGroup(true);
+                  setViewGroupId(bill.groupId);
+                },
+              },
+              { label: "Print", href: `/print/purchase-group/${bill.groupId}` },
+              { label: open ? "Hide entries" : "Show entries", onSelect: () => toggleBill(bill.groupId) },
+            ]}
           >
-            Print
-          </a>
-          <button
-            onClick={() => {
-              setAddToGroup(false);
-              setViewGroupId(bill.groupId);
-            }}
-            className="mr-2 underline underline-offset-4"
-          >
-            Summary
-          </button>
-          <button
-            onClick={() => {
-              setAddToGroup(true);
-              setViewGroupId(bill.groupId);
-            }}
-            className="mr-2 font-medium text-brand underline underline-offset-4"
-          >
-            + Supplier
-          </button>
-          <button onClick={() => toggleBill(bill.groupId)} className="underline underline-offset-4">
-            {open ? "Hide entries" : "Entries"}
-          </button>
+            <button
+              onClick={() => {
+                setAddToGroup(false);
+                setViewGroupId(bill.groupId);
+              }}
+              className={rowButtonPrimary}
+            >
+              Summary
+            </button>
+            {/* Each supplier is paid on their own entry, so this opens the entries. */}
+            <button
+              onClick={() => toggleBill(bill.groupId)}
+              className={rowButton}
+              aria-expanded={open}
+              title="Each supplier's payments are on their entry"
+            >
+              Payments
+            </button>
+          </RowActions>
         </td>
       </tr>
     );
@@ -451,6 +453,7 @@ export default function PurchasePage() {
       </div>
 
       <Card className="p-0">
+        <div className="overflow-x-auto">
           <table className="w-full table-fixed text-sm">
             <thead className="text-left text-black/60 dark:text-white/60">
               <tr>
@@ -472,10 +475,10 @@ export default function PurchasePage() {
                     Date {sortBy === "date" && (sortDir === "desc" ? "↓" : "↑")}
                   </button>
                 </th>
-                <th className="w-36 px-2 py-3">Party</th>
-                <th className="w-36 px-2 py-3">Item</th>
+                <th className="w-28 px-2 py-3">Party</th>
+                <th className="w-28 px-2 py-3">Item</th>
                 <th className="w-20 px-2 py-3 text-center">Weight</th>
-                <th className="w-32 px-2 py-3">Price</th>
+                <th className="w-24 px-2 py-3">Price</th>
                 <th className="w-16 px-2 py-3 text-center">FFA</th>
                 <th className="w-16 px-2 py-3 text-center">Tax %</th>
                 <th className="w-32 px-2 py-3 text-right">Total</th>
@@ -518,6 +521,7 @@ export default function PurchasePage() {
               )}
             </tbody>
           </table>
+        </div>
       </Card>
 
       {totalPages > 1 && (
@@ -556,6 +560,10 @@ export default function PurchasePage() {
           }}
         />
       )}
+      {summaryId && (
+        <BillPreviewModal billType="PURCHASE" billId={summaryId} onClose={() => setSummaryId(null)} />
+      )}
+      {emailPopover}
     </div>
   );
 }
