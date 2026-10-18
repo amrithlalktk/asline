@@ -61,6 +61,7 @@ export default function CombinedPurchaseForm({
 }) {
   const accounts = useAccounts();
   const suppliers = parties.filter((p) => p.type === "SUPPLIER" || p.type === "BOTH");
+  const [billNumber, setBillNumber] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [parts, setParts] = useState<SupplierPart[]>([emptyPart(), emptyPart()]);
@@ -132,7 +133,13 @@ export default function CombinedPurchaseForm({
       const res = await fetch("/api/purchase-groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, notes: notes || null, suppliers: payload, expenses: expensePayload }),
+        body: JSON.stringify({
+          ...(billNumber.trim() ? { billNumber: Number(billNumber) } : {}),
+          date,
+          notes: notes || null,
+          suppliers: payload,
+          expenses: expensePayload,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -148,6 +155,19 @@ export default function CombinedPurchaseForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-sm">
       <div className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-black/60 dark:text-white/60">Bill number</label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={billNumber}
+            onChange={(e) => setBillNumber(e.target.value)}
+            placeholder="Auto"
+            title="Leave blank for the next number"
+            className={`${cell} w-28`}
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-black/60 dark:text-white/60">Date</label>
           <DateInput required value={date} onChange={(e) => setDate(e.target.value)} className={cell} />

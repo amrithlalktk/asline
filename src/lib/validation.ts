@@ -159,6 +159,8 @@ export const groupSupplierSchema = z.object({
 });
 
 export const purchaseGroupSchema = z.object({
+  // Omit for the next free purchase bill number.
+  billNumber: z.number().int().positive("Bill number must be a positive number").optional(),
   date: z.string().min(1, "Date is required"),
   notes: z.string().trim().optional().nullable(),
   suppliers: z.array(groupSupplierSchema).min(1, "Add at least one supplier").max(50),
