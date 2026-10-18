@@ -80,6 +80,8 @@ export default function SalePurchaseForm({
   // Sales are numbered by hand (matches a physical bill book) — Purchases
   // keep auto-numbering server-side, so this only matters in SALE mode.
   const [billNumber, setBillNumber] = useState(initial ? String(initial.billNumber) : "");
+  // A combined bill's entries share its number — renumber it from the bill's Summary.
+  const purchaseNumberLocked = mode === "PURCHASE" && Boolean((initial as Purchase | undefined)?.group);
   const [partyId, setPartyId] = useState(initial?.partyId ?? "");
   const [lines, setLines] = useState<Line[]>(
     initial && initial.items.length > 0
@@ -222,7 +224,9 @@ export default function SalePurchaseForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date,
-          ...(mode === "SALE" ? { billNumber: Number(billNumber) } : {}),
+          ...(mode === "SALE" || (billNumber.trim() && !purchaseNumberLocked)
+            ? { billNumber: Number(billNumber) }
+            : {}),
           partyId: partyId || null,
           items: validLines.map((l) => ({
             itemId: l.itemId,
@@ -252,6 +256,7 @@ export default function SalePurchaseForm({
         // Pure add: clear the form so the next row can be typed straight
         // away, instead of closing anything — no popup to reopen.
         resetForm(mode === "SALE" ? Number(billNumber) + 1 : undefined);
+        if (mode === "PURCHASE") setBillNumber("");
       }
       onSaved();
     } finally {
@@ -262,22 +267,26 @@ export default function SalePurchaseForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <div
-        className={`grid grid-cols-1 items-end gap-2 ${mode === "SALE" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        className="grid grid-cols-1 items-end gap-2 sm:grid-cols-3"
       >
-        {mode === "SALE" && (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-black/60 dark:text-white/60">Bill number</label>
-            <input
-              type="number"
-              required
-              min="1"
-              step="1"
-              value={billNumber}
-              onChange={(e) => setBillNumber(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-        )}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-black/60 dark:text-white/60">
+            Bill number
+            {mode === "PURCHASE" && !initial && <span className="text-black/40"> (blank = next number)</span>}
+          </label>
+          <input
+            type="number"
+            required={mode === "SALE" || Boolean(initial)}
+            min="1"
+            step="1"
+            placeholder={mode === "PURCHASE" && !initial ? "Auto" : undefined}
+            value={billNumber}
+            onChange={(e) => setBillNumber(e.target.value)}
+            disabled={purchaseNumberLocked}
+            title={purchaseNumberLocked ? "Part of a combined bill — change the number from the bill's Summary" : undefined}
+            className={`${inputClass} disabled:opacity-60`}
+          />
+        </div>
         <DateInput
           required
           value={date}

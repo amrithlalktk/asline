@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { purchaseSchema } from "@/lib/validation";
-import { buildPurchaseCreateData, nextPurchaseBillNumber } from "@/lib/purchaseCreate";
+import { buildPurchaseCreateData, nextPurchaseBillNumber, purchaseNumberTaken } from "@/lib/purchaseCreate";
+import { formatBillNumber } from "@/lib/money";
 import { getAvailableAdvanceForPurchasesMap } from "@/lib/balances";
 import type { Prisma } from "@prisma/client";
 
 const PAGE_SIZE = 25;
 const PURCHASE_INCLUDE = {
-  party: { select: { name: true } },
+  party: { select: { name: true, email: true } },
   items: { include: { item: { select: { name: true, unit: true } } } },
   charges: true,
   payments: {
@@ -136,7 +137,14 @@ export async function POST(request: Request) {
     }
   }
 
-  const billNumber = await nextPurchaseBillNumber(db);
+  // A typed bill number must be free; otherwise take the next one.
+  if (parsed.data.billNumber && (await purchaseNumberTaken(db, parsed.data.billNumber))) {
+    return NextResponse.json(
+      { error: `Purchase #${formatBillNumber(parsed.data.billNumber)} is already used — pick a different number.` },
+      { status: 409 }
+    );
+  }
+  const billNumber = parsed.data.billNumber ?? (await nextPurchaseBillNumber(db));
   const purchase = await db.purchase.create({
     data: buildPurchaseCreateData(
       { date, partyId, items, charges, paid, advanceAppliedCents, paymentMethod, notes },

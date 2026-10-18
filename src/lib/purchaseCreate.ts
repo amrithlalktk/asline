@@ -97,3 +97,33 @@ export async function nextPurchaseBillNumber(client: NumberingClient) {
   ]);
   return Math.max(bills._max.billNumber ?? 0, groups._max.number ?? 0) + 1;
 }
+
+type TakenClient = {
+  purchase: { count: (args: { where: Record<string, unknown> }) => Promise<number> };
+  purchaseGroup: { count: (args: { where: Record<string, unknown> }) => Promise<number> };
+};
+
+// Is purchase bill number `n` already used by another bill? A bill is a
+// single purchase or a whole combined bill (its entries share the number).
+// `except` leaves out the bill being renumbered.
+export async function purchaseNumberTaken(
+  client: TakenClient,
+  n: number,
+  except: { purchaseId?: string; groupId?: string } = {}
+) {
+  const [purchases, groups] = await Promise.all([
+    client.purchase.count({
+      where: {
+        billNumber: n,
+        ...(except.purchaseId ? { id: { not: except.purchaseId } } : {}),
+        // Purchases outside any combined bill have groupId null — a plain
+        // "not this group" filter would silently skip them.
+        ...(except.groupId ? { OR: [{ groupId: null }, { groupId: { not: except.groupId } }] } : {}),
+      },
+    }),
+    client.purchaseGroup.count({
+      where: { number: n, ...(except.groupId ? { id: { not: except.groupId } } : {}) },
+    }),
+  ]);
+  return purchases + groups > 0;
+}

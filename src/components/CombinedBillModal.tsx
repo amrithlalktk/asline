@@ -71,6 +71,30 @@ export default function CombinedBillModal({
     loadGroup();
   }, [loadGroup]);
 
+  // Renumbers the whole combined bill (every supplier entry with it).
+  async function changeNumber() {
+    if (!group) return;
+    const input = prompt("New bill number", String(group.number));
+    if (input === null) return;
+    const number = Number(input);
+    if (!Number.isInteger(number) || number <= 0) {
+      alert("Enter a whole number greater than 0");
+      return;
+    }
+    if (number === group.number) return;
+    const res = await fetch(`/api/purchase-groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ number }),
+    });
+    if (!res.ok) {
+      alert((await res.json()).error ?? "Could not change the bill number");
+      return;
+    }
+    await loadGroup();
+    onChanged();
+  }
+
   async function handleDelete() {
     if (!group) return;
     if (!confirm(`Delete Purchase #${formatBillNumber(group.number)} with all ${group.purchases.length} supplier entries in it?`)) return;
@@ -108,6 +132,10 @@ export default function CombinedBillModal({
           <p className="text-black/60 dark:text-white/60">
             {formatDate(group.date)} · {group.purchases.length} suppliers
             {group.notes && ` · ${group.notes}`}
+            {" · "}
+            <button type="button" onClick={changeNumber} className="text-brand underline underline-offset-4">
+              Change bill number
+            </button>
           </p>
           <div className="flex flex-col gap-2">
             {group.purchases.map((p) => (

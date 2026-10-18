@@ -25,6 +25,7 @@ export default function EmailPdfButton({
   disabled,
   className,
   defaultRecipient,
+  label = "Email PDF",
 }: {
   endpoint: string;
   body?: Record<string, unknown> | null;
@@ -32,6 +33,8 @@ export default function EmailPdfButton({
   className?: string;
   /** Pre-checked in the picker — typically the bill's own party, if it has an email saved. */
   defaultRecipient?: { name: string; email: string } | null;
+  // Button text — shorter ("Email") on list rows.
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -185,7 +188,7 @@ export default function EmailPdfButton({
           "rounded-md border border-black/15 px-3 py-2 text-sm disabled:opacity-40 dark:border-white/15"
         }
       >
-        {state === "sent" ? "Sent ✓" : "Email PDF"}
+        {state === "sent" ? "Sent ✓" : label}
       </button>
 
       {mounted &&

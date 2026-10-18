@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { isAdminRole } from "@/lib/types";
+import { formatBillNumber } from "@/lib/money";
+import { purchaseNumberTaken } from "@/lib/purchaseCreate";
+import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 export async function GET(
   _request: Request,
@@ -66,4 +70,47 @@ export async function DELETE(
     db.purchaseGroup.delete({ where: { id } }),
   ]);
   return NextResponse.json({ ok: true });
+}
+
+const renumberSchema = z.object({ number: z.number().int().positive("Bill number must be a positive number") });
+
+// Changes a combined bill's number — the bill and every supplier entry in it.
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const parsed = renumberSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const group = await db.purchaseGroup.findUnique({ where: { id }, select: { number: true } });
+  if (!group) return NextResponse.json({ error: "Combined bill not found" }, { status: 404 });
+  const { number } = parsed.data;
+  if (number === group.number) return NextResponse.json({ ok: true, number });
+  if (await purchaseNumberTaken(db, number, { groupId: id })) {
+    return NextResponse.json(
+      { error: `Purchase #${formatBillNumber(number)} is already used — pick a different number.` },
+      { status: 409 }
+    );
+  }
+  try {
+    await db.$transaction([
+      db.purchaseGroup.update({ where: { id }, data: { number } }),
+      db.purchase.updateMany({ where: { groupId: id }, data: { billNumber: number } }),
+    ]);
+  } catch (err) {
+    // Belt and braces: the database's own uniqueness guard caught a clash.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: `Purchase #${formatBillNumber(number)} is already used — pick a different number.` },
+        { status: 409 }
+      );
+    }
+    throw err;
+  }
+  return NextResponse.json({ ok: true, number });
 }

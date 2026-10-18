@@ -12,6 +12,7 @@ import QuickEntryRow from "@/components/QuickEntryRow";
 import PaymentHistory from "@/components/PaymentHistory";
 import PaymentStatusIcon from "@/components/PaymentStatusIcon";
 import SearchInput from "@/components/SearchInput";
+import EmailPdfButton from "@/components/EmailPdfButton";
 import AddFfaModal from "@/components/AddFfaModal";
 import SaleProfitModal from "@/components/SaleProfitModal";
 import ForwardSalesPanel, { type ForwardSale } from "@/components/ForwardSalesPanel";
@@ -398,6 +399,14 @@ export default function SalePage() {
                       >
                         Payments
                       </button>
+                      <EmailPdfButton
+                        endpoint={`/api/print/sale/${sale.id}/email`}
+                        defaultRecipient={
+                          sale.party?.email ? { name: sale.party.name, email: sale.party.email } : null
+                        }
+                        label="Email"
+                        className="mr-2 underline underline-offset-4 disabled:opacity-40"
+                      />
                       <button onClick={() => openEdit(sale)} className="mr-2 underline underline-offset-4">
                         Edit
                       </button>

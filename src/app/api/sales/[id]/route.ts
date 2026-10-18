@@ -10,7 +10,7 @@ import { resolveForwardLinks } from "@/lib/forwardSales";
 import { Prisma } from "@prisma/client";
 
 const SALE_INCLUDE = {
-  party: { select: { name: true } },
+  party: { select: { name: true, email: true } },
   items: {
     include: {
       item: { select: { name: true, unit: true, ffaGraded: true } },
