@@ -8,6 +8,7 @@ import { displayUnit } from "@/lib/units";
 import { itemAverages } from "@/lib/itemAverages";
 import AddGroupSupplierForm from "@/components/AddGroupSupplierForm";
 import EmailPdfButton from "@/components/EmailPdfButton";
+import { combinedBillPdf } from "@/lib/combinedBillPdf";
 import type { Item, Party } from "@/lib/types";
 
 type GroupPurchase = {
@@ -289,26 +290,7 @@ export default function CombinedBillModal({
             )}
             <EmailPdfButton
               endpoint="/api/reports/email-pdf"
-              body={{
-                filename: `purchase_${formatBillNumber(group.number)}.pdf`,
-                title: `Purchase Bill #${formatBillNumber(group.number)} — ${formatDate(group.date)}`,
-                header: ["Supplier", "Item", "Qty", "Rate", "Amount", "Paid", "Due"],
-                rows: [
-                  ...group.purchases.flatMap((p) =>
-                    p.items.map((l, i) => [
-                      i === 0 ? (p.party?.name ?? "No supplier") : "",
-                      l.item.name,
-                      `${l.quantity} ${displayUnit(l.item.unit)}`,
-                      formatCents(l.priceCents),
-                      formatCents(l.lineTotalCents),
-                      i === 0 ? formatCents(p.paidCents) : "",
-                      i === 0 ? formatCents(p.totalCents - p.paidCents) : "",
-                    ])
-                  ),
-                  ...group.expenses.map((e) => ["Expense", e.description, "", "", formatCents(e.amountCents), "", ""]),
-                  ["", "Combined total", "", "", formatCents(total + expensesCents), formatCents(paid), formatCents(total - paid)],
-                ],
-              }}
+              body={combinedBillPdf(group)}
               className="rounded-md border border-black/15 px-3 py-2 dark:border-white/15"
             />
             <a

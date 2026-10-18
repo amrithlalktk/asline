@@ -17,6 +17,7 @@ import PaymentStatusIcon from "@/components/PaymentStatusIcon";
 import SearchInput from "@/components/SearchInput";
 import RowActions, { rowButton, rowButtonPrimary, useRowEmail } from "@/components/RowActions";
 import BillPreviewModal from "@/components/BillPreviewModal";
+import { combinedBillPdf } from "@/lib/combinedBillPdf";
 
 type CombinedBill = {
   kind: "COMBINED";
@@ -287,6 +288,17 @@ export default function PurchasePage() {
     );
   }
 
+  // The list doesn't carry a combined bill's expenses, so fetch the whole
+  // bill before opening the email picker.
+  async function emailCombinedBill(groupId: string, anchor: HTMLElement) {
+    const res = await fetch(`/api/purchase-groups/${groupId}`);
+    if (!res.ok) {
+      alert("Could not load the bill to email it.");
+      return;
+    }
+    openEmail({ endpoint: "/api/reports/email-pdf", body: combinedBillPdf(await res.json()), anchor });
+  }
+
   // A combined bill (several suppliers, one bill number) as one row: its
   // suppliers, items and grand total; click to list every supplier entry.
   function renderCombinedRow(bill: CombinedBill) {
@@ -354,6 +366,7 @@ export default function PurchasePage() {
                 },
               },
               { label: "Print", href: `/print/purchase-group/${bill.groupId}` },
+              { label: "Email", onSelect: (anchor) => emailCombinedBill(bill.groupId, anchor) },
               { label: open ? "Hide entries" : "Show entries", onSelect: () => toggleBill(bill.groupId) },
             ]}
           >
