@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/date";
 import { useCallback, useEffect, useState } from "react";
 import { formatCents } from "@/lib/money";
 import Card from "@/components/Card";
@@ -70,7 +71,7 @@ export default function ProfitLossPage() {
   function handleExport(kind: "csv" | "pdf") {
     const args = {
       filename: `profit_and_loss_${from}_to_${to}.${kind}`,
-      title: `Profit & Loss (${from} to ${to})`,
+      title: `Profit & Loss (${formatDate(from)} to ${formatDate(to)})`,
       header: ["Line", "Amount"],
       rows: reportRows(),
       generatedBy,
@@ -126,7 +127,7 @@ export default function ProfitLossPage() {
               endpoint="/api/reports/email-pdf"
               body={{
                 filename: `profit_and_loss_${from}_to_${to}.pdf`,
-                title: `Profit & Loss (${from} to ${to})`,
+                title: `Profit & Loss (${formatDate(from)} to ${formatDate(to)})`,
                 header: ["Line", "Amount"],
                 rows: reportRows(),
               }}

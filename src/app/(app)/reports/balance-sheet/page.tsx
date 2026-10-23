@@ -91,7 +91,7 @@ export default function BalanceSheetPage() {
   }, [load]);
 
   const asOf = sheet ? formatDate(sheet.asOf) : "";
-  const title = `Balance Sheet (as of ${asOf})`;
+  const title = `Balance Sheet (as of ${formatDate(asOf)})`;
 
   function rows(): string[][] {
     if (!sheet) return [];

@@ -68,7 +68,7 @@ const AccountHistoryCard = forwardRef<HTMLDivElement, {
     load();
   }, [load]);
 
-  const title = data ? `${data.account.name} — account history (${from || "start"} to ${to || "today"})` : "";
+  const title = data ? `${data.account.name} — account history (${from ? formatDate(from) : "start"} to ${to ? formatDate(to) : "today"})` : "";
   function rows(): string[][] {
     if (!data) return [];
     const r = (c: number) => (c / 100).toFixed(2);

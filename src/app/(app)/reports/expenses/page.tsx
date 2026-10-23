@@ -61,7 +61,7 @@ export default function ExpenseReportPage() {
     if (!data) return;
     downloadReportCsv({
       filename: `expenses_${from}_to_${to}.csv`,
-      title: `Expense report (${from} to ${to})`,
+      title: `Expense report (${formatDate(from)} to ${formatDate(to)})`,
       header: EXPENSE_HEADER,
       rows: expenseRows(data.expenses, accounts),
       generatedBy,
@@ -72,7 +72,7 @@ export default function ExpenseReportPage() {
     if (!data) return;
     downloadReportPdf({
       filename: `expenses_${from}_to_${to}.pdf`,
-      title: `Expense report (${from} to ${to})`,
+      title: `Expense report (${formatDate(from)} to ${formatDate(to)})`,
       header: EXPENSE_HEADER,
       rows: expenseRows(data.expenses, accounts),
       generatedBy,
@@ -170,7 +170,7 @@ export default function ExpenseReportPage() {
               body={
                 data && {
                   filename: `expenses_${from}_to_${to}.pdf`,
-                  title: `Expense report (${from} to ${to})`,
+                  title: `Expense report (${formatDate(from)} to ${formatDate(to)})`,
                   header: EXPENSE_HEADER,
                   rows: expenseRows(data.expenses, accounts),
                 }

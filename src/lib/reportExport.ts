@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { companyLines, fetchCompany, type CompanyInfo } from "@/lib/company";
 import { formatDateTime } from "@/lib/date";
+import { applyPdfFont, numericColumnStyles } from "@/lib/pdfFont";
 
 function escapeCsv(v: string) {
   return `"${v.replace(/"/g, '""')}"`;
@@ -56,14 +57,18 @@ export function buildReportPdfDoc({
   rows,
   generatedBy,
   company,
+  fontBase64,
 }: {
   title: string;
   header: string[];
   rows: string[][];
   generatedBy: string;
   company: CompanyInfo;
+  // See pdfFont.ts — passed in so the browser can load it lazily.
+  fontBase64: string;
 }) {
   const doc = new jsPDF({ orientation: rows.length && header.length > 5 ? "landscape" : "portrait" });
+  applyPdfFont(doc, fontBase64);
   const marginX = 14;
   // The company address can run long enough to wrap — measure its actual
   // wrapped line count instead of assuming a fixed number of lines, so
@@ -94,8 +99,9 @@ export function buildReportPdfDoc({
     startY: y,
     head: [header],
     body: rows,
-    styles: { fontSize: 8 },
+    styles: { fontSize: 8, font: "Geist" },
     headStyles: { fillColor: [30, 34, 49] },
+    ...numericColumnStyles(header, rows),
   });
 
   return doc;
@@ -111,17 +117,19 @@ export async function downloadReportPdf({
   rows: string[][];
   generatedBy: string;
 }) {
-  buildReportPdfDoc({ ...opts, company: await fetchCompany() }).save(filename);
+  const [company, { PDF_FONT_BASE64 }] = await Promise.all([fetchCompany(), import("@/lib/pdfFontData")]);
+  buildReportPdfDoc({ ...opts, company, fontBase64: PDF_FONT_BASE64 }).save(filename);
 }
 
 // Server-side counterpart of downloadReportPdf — same document, returned as
 // a Buffer instead of triggering a browser download, for emailing.
-export function getReportPdfBuffer(opts: {
+export async function getReportPdfBuffer(opts: {
   title: string;
   header: string[];
   rows: string[][];
   generatedBy: string;
   company: CompanyInfo;
 }) {
-  return Buffer.from(buildReportPdfDoc(opts).output("arraybuffer"));
+  const { PDF_FONT_BASE64 } = await import("@/lib/pdfFontData");
+  return Buffer.from(buildReportPdfDoc({ ...opts, fontBase64: PDF_FONT_BASE64 }).output("arraybuffer"));
 }

@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   }
 
   const { filename, title, header, rows } = parsed.data;
-  const pdf = getReportPdfBuffer({ title, header, rows, generatedBy: session.name, company: await getCompany() });
+  const pdf = await getReportPdfBuffer({ title, header, rows, generatedBy: session.name, company: await getCompany() });
 
   await sendMail({
     to,

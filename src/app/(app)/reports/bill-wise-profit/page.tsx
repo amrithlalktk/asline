@@ -110,7 +110,7 @@ export default function BillWiseProfitPage() {
     if (rows.length === 0) return;
     downloadReportCsv({
       filename: `bill_wise_profit_${from}_to_${to}.csv`,
-      title: `Bill Wise Profit (${from} to ${to})`,
+      title: `Bill Wise Profit (${formatDate(from)} to ${formatDate(to)})`,
       header: HEADER,
       rows: csvRows(rows),
       generatedBy,
@@ -120,7 +120,7 @@ export default function BillWiseProfitPage() {
     if (rows.length === 0) return;
     downloadReportPdf({
       filename: `bill_wise_profit_${from}_to_${to}.pdf`,
-      title: `Bill Wise Profit (${from} to ${to})`,
+      title: `Bill Wise Profit (${formatDate(from)} to ${formatDate(to)})`,
       header: HEADER,
       rows: csvRows(rows),
       generatedBy,
@@ -176,7 +176,7 @@ export default function BillWiseProfitPage() {
               endpoint="/api/reports/email-pdf"
               body={{
                 filename: `bill_wise_profit_${from}_to_${to}.pdf`,
-                title: `Bill Wise Profit (${from} to ${to})`,
+                title: `Bill Wise Profit (${formatDate(from)} to ${formatDate(to)})`,
                 header: HEADER,
                 rows: csvRows(rows),
               }}

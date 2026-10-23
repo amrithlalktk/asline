@@ -161,8 +161,8 @@ export default function SalesPurchasesReportPage() {
         ? `tax_${txFrom}_to_${txTo}.csv`
         : `sales_purchases_${txFrom}_to_${txTo}.csv`,
       title: taxOnly
-        ? `Tax report (${txFrom} to ${txTo})`
-        : `Sales & Purchases report (${txFrom} to ${txTo})`,
+        ? `Tax report (${formatDate(txFrom)} to ${formatDate(txTo)})`
+        : `Sales & Purchases report (${formatDate(txFrom)} to ${formatDate(txTo)})`,
       header: taxOnly ? TX_TAX_HEADER : TX_HEADER,
       rows: taxOnly ? taxLineCsvRows(taxRows) : txCsvRows(txRows),
       generatedBy,
@@ -177,8 +177,8 @@ export default function SalesPurchasesReportPage() {
         ? `tax_${txFrom}_to_${txTo}.pdf`
         : `sales_purchases_${txFrom}_to_${txTo}.pdf`,
       title: taxOnly
-        ? `Tax report (${txFrom} to ${txTo})`
-        : `Sales & Purchases report (${txFrom} to ${txTo})`,
+        ? `Tax report (${formatDate(txFrom)} to ${formatDate(txTo)})`
+        : `Sales & Purchases report (${formatDate(txFrom)} to ${formatDate(txTo)})`,
       header: taxOnly ? TX_TAX_HEADER : TX_HEADER,
       rows: taxOnly ? taxLineCsvRows(taxRows) : txCsvRows(txRows),
       generatedBy,
@@ -295,8 +295,8 @@ export default function SalesPurchasesReportPage() {
                   ? `tax_${txFrom}_to_${txTo}.pdf`
                   : `sales_purchases_${txFrom}_to_${txTo}.pdf`,
                 title: taxOnly
-                  ? `Tax report (${txFrom} to ${txTo})`
-                  : `Sales & Purchases report (${txFrom} to ${txTo})`,
+                  ? `Tax report (${formatDate(txFrom)} to ${formatDate(txTo)})`
+                  : `Sales & Purchases report (${formatDate(txFrom)} to ${formatDate(txTo)})`,
                 header: taxOnly ? TX_TAX_HEADER : TX_HEADER,
                 rows: taxOnly ? taxLineCsvRows(taxRows) : txCsvRows(txRows),
               }}
