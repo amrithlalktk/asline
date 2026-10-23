@@ -7,6 +7,7 @@ import { accountName, isAdminRole, type CombinedPayment, type Party } from "@/li
 import { useViewerRole } from "@/lib/useViewerRole";
 import Card from "@/components/Card";
 import RecordPaymentForm, { type PayType } from "@/components/RecordPaymentForm";
+import PartyTransferForm from "@/components/PartyTransferForm";
 import BillPreviewModal, { type PreviewBillType } from "@/components/BillPreviewModal";
 import { useAccounts } from "@/lib/useAccounts";
 import DateInput from "@/components/DateInput";
@@ -45,11 +46,15 @@ export default function PaymentsPage() {
     null
   );
 
-  useEffect(() => {
+  // Reloaded after each save so the balance hints stay current.
+  const loadParties = useCallback(() => {
     fetch("/api/parties")
       .then((res) => res.json())
       .then(setParties);
   }, []);
+  useEffect(() => {
+    loadParties();
+  }, [loadParties]);
 
   const loadHistory = useCallback(async () => {
     const params = new URLSearchParams({ page: String(historyPage) });
@@ -70,12 +75,21 @@ export default function PaymentsPage() {
     setEditingPayment(null);
     setHistoryPage(1);
     loadHistory();
+    loadParties();
   }
 
   async function handleDeletePayment(p: CombinedPayment) {
-    if (!confirm("Remove this payment? This can't be undone.")) return;
-    const url =
-      p.kind === "SALE"
+    if (
+      !confirm(
+        p.transfer
+          ? `Remove the party transfer ${p.transfer.fromName} → ${p.transfer.toName} (both sides)? This can't be undone.`
+          : "Remove this payment? This can't be undone."
+      )
+    )
+      return;
+    const url = p.transfer
+      ? `/api/party-transfers/${p.transfer.id}`
+      : p.kind === "SALE"
         ? `/api/sales/${p.refId}/payments/${p.id}`
         : p.kind === "PURCHASE"
           ? `/api/purchases/${p.refId}/payments/${p.id}`
@@ -100,6 +114,10 @@ export default function PaymentsPage() {
           onCancelEdit={() => setEditingPayment(null)}
           onSaved={handleSaved}
         />
+      </Card>
+
+      <Card title="Party to party transfer">
+        <PartyTransferForm parties={parties} onSaved={handleSaved} />
       </Card>
 
       <Card title="All payments" className="p-0">
@@ -165,10 +183,16 @@ export default function PaymentsPage() {
                 return (
                   <tr key={`${p.kind}-${p.id}`} className="border-t border-black/5 dark:border-white/5">
                     <td className="px-4 py-2 whitespace-nowrap">{formatDate(p.date)}</td>
-                    <td className="px-4 py-2">{kindLabel[p.kind]}</td>
+                    <td className="px-4 py-2">{p.transfer ? "Transfer" : kindLabel[p.kind]}</td>
                     <td className="px-4 py-2">{p.partyName}</td>
                     <td className="px-4 py-2">
-                      {p.kind === "ADVANCE" ? (
+                      {p.transfer ? (
+                        p.direction === "RECEIVED" ? (
+                          `Paid ${p.transfer.toName} for you`
+                        ) : (
+                          `Paid by ${p.transfer.fromName} for you`
+                        )
+                      ) : p.kind === "ADVANCE" ? (
                         p.direction === "RECEIVED" ? (
                           "Advance received"
                         ) : (
@@ -195,7 +219,7 @@ export default function PaymentsPage() {
                     <td className="px-4 py-2">{accountName(accounts, p.paymentMethod)}</td>
                     <td className="px-4 py-2 text-black/60 dark:text-white/60">{p.notes ?? ""}</td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
-                      {p.kind === "ADVANCE" && (
+                      {p.kind === "ADVANCE" && !p.transfer && (
                         <button
                           onClick={() => setEditingPayment(p)}
                           className="mr-2 underline underline-offset-4"

@@ -196,6 +196,20 @@ export const partyPaymentSchema = z.object({
   notes: z.string().trim().optional().nullable(),
 });
 
+// One party paying another on the business's behalf (see PartyTransfer).
+export const partyTransferSchema = z
+  .object({
+    date: z.string().min(1, "Date is required"),
+    fromPartyId: z.string().min(1, "Choose who is paying"),
+    toPartyId: z.string().min(1, "Choose who is being paid"),
+    amount: z.number().positive("Amount must be greater than 0"),
+    notes: z.string().trim().optional().nullable(),
+  })
+  .refine((v) => v.fromPartyId !== v.toPartyId, {
+    message: "Pick two different parties",
+    path: ["toPartyId"],
+  });
+
 export const noteSheetSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
 });

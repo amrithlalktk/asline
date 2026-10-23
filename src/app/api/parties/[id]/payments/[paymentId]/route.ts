@@ -25,6 +25,14 @@ export async function PATCH(
 
   const { date, direction, amount, paymentMethod, notes } = parsed.data;
 
+  const existing = await db.partyPayment.findUnique({ where: { id: paymentId }, select: { partyTransferId: true } });
+  if (existing?.partyTransferId) {
+    return NextResponse.json(
+      { error: "This is part of a party transfer — delete the transfer and record it again." },
+      { status: 409 }
+    );
+  }
+
   try {
     const payment = await db.$transaction(async (tx) => {
       const updated = await tx.partyPayment.update({
@@ -68,6 +76,13 @@ export async function DELETE(
   }
 
   const { paymentId } = await params;
+  const existing = await db.partyPayment.findUnique({ where: { id: paymentId }, select: { partyTransferId: true } });
+  if (existing?.partyTransferId) {
+    return NextResponse.json(
+      { error: "This is part of a party transfer — delete the transfer instead." },
+      { status: 409 }
+    );
+  }
   await db.$transaction(async (tx) => {
     const deleted = await tx.partyPayment.delete({ where: { id: paymentId } });
     await resyncAdvanceForParty(tx, deleted.partyId);

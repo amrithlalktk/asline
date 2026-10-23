@@ -50,6 +50,8 @@ type LedgerAdvance = {
   // entry, so it's skipped here rather than shown a second time.
   sourceSalePaymentId?: string | null;
   sourcePurchasePaymentId?: string | null;
+  // Set when this is one side of a party-to-party transfer.
+  partyTransferId?: string | null;
 };
 
 // One combined, chronological account of every event that moved this
@@ -146,7 +148,7 @@ export function buildLedger(
     if (a.sourceSalePaymentId || a.sourcePurchasePaymentId) continue;
     entries.push({
       date: a.date,
-      type: a.direction === "RECEIVED" ? "Advance received" : "Advance paid",
+      type: a.partyTransferId ? "Party transfer" : a.direction === "RECEIVED" ? "Advance received" : "Advance paid",
       ref: a.notes || "—",
       amountCents: a.direction === "RECEIVED" ? -a.amountCents : a.amountCents,
     });

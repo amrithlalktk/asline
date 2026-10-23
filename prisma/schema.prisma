@@ -77,6 +77,7 @@ model User {
   stockAdjustments    StockAdjustment[]
   purchases           Purchase[]
   advancePayments     PartyPayment[]
+  partyTransfers      PartyTransfer[]
   passwordResetTokens PasswordResetToken[]
 }
 
@@ -234,20 +235,22 @@ model ExpenseAllocation {
 }
 
 model Party {
-  id                  String         @id @default(cuid())
+  id                  String          @id @default(cuid())
   name                String
-  type                PartyType      @default(BOTH)
+  type                PartyType       @default(BOTH)
   phone               String?
   email               String?
   address             String?
   gstNumber           String?
   notes               String?
-  openingBalanceCents Int            @default(0)
-  createdAt           DateTime       @default(now())
+  openingBalanceCents Int             @default(0)
+  createdAt           DateTime        @default(now())
   sales               Sale[]
   forwardSales        ForwardSale[]
   purchases           Purchase[]
   advancePayments     PartyPayment[]
+  transfersPaid       PartyTransfer[] @relation("PartyTransferFrom")
+  transfersReceived   PartyTransfer[] @relation("PartyTransferTo")
 }
 
 // Money exchanged with a party outside of any specific Sale/Purchase — most
@@ -275,6 +278,33 @@ model PartyPayment {
   sourceSalePaymentId     String?               @unique
   sourcePurchasePayment   PurchasePayment?      @relation(fields: [sourcePurchasePaymentId], references: [id], onDelete: Cascade)
   sourcePurchasePaymentId String?               @unique
+  // Set when this row is one side of a party-to-party transfer (see
+  // PartyTransfer); deleting the transfer removes both sides.
+  partyTransfer           PartyTransfer?        @relation(fields: [partyTransferId], references: [id], onDelete: Cascade)
+  partyTransferId         String?
+
+  @@index([date])
+}
+
+// One party paying another directly on the business's behalf — e.g. a
+// customer who owes us ₹10,000 pays ₹5,000 of it straight to a supplier we
+// owe. Stored as two linked PartyPayments on the no-cash PARTY_TRANSFER
+// account: RECEIVED from `fromParty` (lowers what they owe us) and PAID to
+// `toParty` (lowers what we owe them). Both then settle bills through the
+// usual advance sweep, and no real cash or bank balance moves.
+model PartyTransfer {
+  id          String         @id @default(cuid())
+  date        DateTime
+  fromParty   Party          @relation("PartyTransferFrom", fields: [fromPartyId], references: [id], onDelete: Restrict)
+  fromPartyId String
+  toParty     Party          @relation("PartyTransferTo", fields: [toPartyId], references: [id], onDelete: Restrict)
+  toPartyId   String
+  amountCents Int
+  notes       String?
+  recordedBy  User           @relation(fields: [userId], references: [id])
+  userId      String
+  createdAt   DateTime       @default(now())
+  payments    PartyPayment[]
 
   @@index([date])
 }

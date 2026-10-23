@@ -26,6 +26,7 @@ type CombinedPayment = {
   direction: "RECEIVED" | "PAID" | null;
   paymentMethod: string;
   notes: string | null;
+  transfer: { id: string; fromName: string; toName: string } | null;
 };
 
 export async function GET(request: Request) {
@@ -77,6 +78,7 @@ export async function GET(request: Request) {
         // amount that landed on this bill.
         amountCents: p.amountCents + excessCents,
         direction: null,
+        transfer: null,
         paymentMethod: p.paymentMethod,
         notes:
           excessCents > 0
@@ -109,6 +111,7 @@ export async function GET(request: Request) {
         refId: p.purchase.id,
         amountCents: p.amountCents + excessCents,
         direction: null,
+        transfer: null,
         paymentMethod: p.paymentMethod,
         notes:
           excessCents > 0
@@ -124,7 +127,12 @@ export async function GET(request: Request) {
         ...(hasDateFilter ? { date: dateFilter } : {}),
         ...(partyId ? { partyId } : {}),
       },
-      include: { party: { select: { name: true } } },
+      include: {
+        party: { select: { name: true } },
+        partyTransfer: {
+          select: { id: true, fromParty: { select: { name: true } }, toParty: { select: { name: true } } },
+        },
+      },
     });
     for (const p of rows) {
       // Already represented by the bill payment that created it (see the
@@ -142,6 +150,9 @@ export async function GET(request: Request) {
         direction: p.direction,
         paymentMethod: p.paymentMethod,
         notes: p.notes,
+        transfer: p.partyTransfer
+          ? { id: p.partyTransfer.id, fromName: p.partyTransfer.fromParty.name, toName: p.partyTransfer.toParty.name }
+          : null,
       });
     }
   }

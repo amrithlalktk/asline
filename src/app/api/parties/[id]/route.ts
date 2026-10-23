@@ -86,10 +86,17 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const [saleCount, purchaseCount] = await Promise.all([
+  const [saleCount, purchaseCount, transferCount] = await Promise.all([
     db.sale.count({ where: { partyId: id } }),
     db.purchase.count({ where: { partyId: id } }),
+    db.partyTransfer.count({ where: { OR: [{ fromPartyId: id }, { toPartyId: id }] } }),
   ]);
+  if (transferCount > 0) {
+    return NextResponse.json(
+      { error: "Party has party transfers recorded and can't be deleted" },
+      { status: 409 }
+    );
+  }
   if (saleCount > 0 || purchaseCount > 0) {
     return NextResponse.json(
       { error: "Party has sales or purchases recorded and can't be deleted" },

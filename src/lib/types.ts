@@ -31,8 +31,13 @@ export type Account = {
   outCents?: number;
 };
 
+// The hidden no-cash account party-to-party transfers are booked against
+// (see PartyTransfer in schema.prisma). Never listed as a real account.
+export const PARTY_TRANSFER_ACCOUNT_ID = "PARTY_TRANSFER";
+
 export function accountName(accounts: Pick<Account, "id" | "name">[], id: string | null | undefined) {
   if (!id) return "—";
+  if (id === PARTY_TRANSFER_ACCOUNT_ID) return "Party transfer";
   return accounts.find((a) => a.id === id)?.name ?? id;
 }
 
@@ -145,6 +150,8 @@ export type PartyPayment = {
   // buildLedger uses this to avoid showing it a second time.
   sourceSalePaymentId: string | null;
   sourcePurchasePaymentId: string | null;
+  // Set when this is one side of a party-to-party transfer.
+  partyTransferId?: string | null;
 };
 
 // One row of GET /api/payments — a Sale/Purchase installment or a Party
@@ -161,6 +168,8 @@ export type CombinedPayment = {
   direction: PartyPaymentDirection | null;
   paymentMethod: PaymentMethod;
   notes: string | null;
+  // Set when this is one side of a party-to-party transfer.
+  transfer?: { id: string; fromName: string; toName: string } | null;
 };
 
 export type Item = {

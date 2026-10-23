@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
-import type { PaymentMethod } from "@/lib/types";
+import { PARTY_TRANSFER_ACCOUNT_ID, type PaymentMethod } from "@/lib/types";
 
 // Party/item balances are always computed at read time from Sale/Purchase
 // rows rather than stored, so they can never drift out of sync.
@@ -505,7 +505,8 @@ export async function getAccountBalances() {
   for (const r of capitalMoves)
     add(r.type === "CONTRIBUTION" ? inBy : outBy, r.paymentMethod, r._sum.amountCents);
 
-  return accounts.map((a) => {
+  // The party-transfer account always nets to zero and isn't real money.
+  return accounts.filter((a) => a.id !== PARTY_TRANSFER_ACCOUNT_ID).map((a) => {
     const inCents = inBy.get(a.id) ?? 0;
     const outCents = outBy.get(a.id) ?? 0;
     return { ...a, inCents, outCents, balanceCents: a.openingBalanceCents + inCents - outCents };
