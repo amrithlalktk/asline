@@ -23,6 +23,11 @@ import SalePurchaseBarChart, {
 // boundaries here must be computed in UTC too — mixing in server-local
 // wall-clock time would shift "today" by a day in any timezone other than
 // UTC.
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 function utcStartOfDay(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
@@ -101,6 +106,9 @@ export default async function DashboardPage() {
     stockDelta,
     avgCost,
     accountBalances,
+    soldByItem,
+    boughtByItem,
+    expenseByCategory,
   ] = await Promise.all([
     db.sale.findMany({ where: { date: { gte: monthStart, lte: todayEnd } } }),
     db.transaction.findMany({
@@ -130,6 +138,22 @@ export default async function DashboardPage() {
     getItemStockMap(),
     getItemAverageCostMap(),
     getAccountBalances(),
+    // This month's quantity and value per item, for the month summary tile.
+    db.saleItem.groupBy({
+      by: ["itemId"],
+      where: { sale: { date: { gte: monthStart, lte: todayEnd } } },
+      _sum: { quantity: true, lineTotalCents: true, taxCents: true },
+    }),
+    db.purchaseItem.groupBy({
+      by: ["itemId"],
+      where: { purchase: { date: { gte: monthStart, lte: todayEnd } } },
+      _sum: { quantity: true, lineTotalCents: true, taxCents: true },
+    }),
+    db.transaction.groupBy({
+      by: ["categoryId"],
+      where: { type: "EXPENSE", date: { gte: monthStart, lte: todayEnd } },
+      _sum: { amountCents: true },
+    }),
   ]);
 
   const saleTotal = sumCents(salesThisMonth, "totalCents");
@@ -228,6 +252,46 @@ export default async function DashboardPage() {
 
   const todayPurchaseTotalCents = sumCents(todayPurchases, "totalCents");
 
+  // Month summary: each item sold or bought this month with its total
+  // quantity and value (incl. tax), biggest sellers first.
+  const monthLabel = `${MONTH_NAMES[now.getUTCMonth()]} ${now.getUTCFullYear()}`;
+  const itemById = new Map(items.map((i) => [i.id, i]));
+  const monthItems = new Map<
+    string,
+    { name: string; unit: string; soldQty: number; soldCents: number; boughtQty: number; boughtCents: number }
+  >();
+  const monthItem = (itemId: string) => {
+    let row = monthItems.get(itemId);
+    if (!row) {
+      const item = itemById.get(itemId);
+      row = { name: item?.name ?? "—", unit: item?.unit ?? "", soldQty: 0, soldCents: 0, boughtQty: 0, boughtCents: 0 };
+      monthItems.set(itemId, row);
+    }
+    return row;
+  };
+  for (const g of soldByItem) {
+    const row = monthItem(g.itemId);
+    row.soldQty = g._sum.quantity ?? 0;
+    row.soldCents = (g._sum.lineTotalCents ?? 0) + (g._sum.taxCents ?? 0);
+  }
+  for (const g of boughtByItem) {
+    const row = monthItem(g.itemId);
+    row.boughtQty = g._sum.quantity ?? 0;
+    row.boughtCents = (g._sum.lineTotalCents ?? 0) + (g._sum.taxCents ?? 0);
+  }
+  const monthItemRows = [...monthItems.values()].sort(
+    (a, b) => b.soldCents - a.soldCents || b.boughtCents - a.boughtCents || a.name.localeCompare(b.name)
+  );
+  const expenseCategories = await db.category.findMany({
+    where: { id: { in: expenseByCategory.map((g) => g.categoryId) } },
+    select: { id: true, name: true },
+  });
+  const categoryName = new Map(expenseCategories.map((c) => [c.id, c.name]));
+  const monthExpenseRows = expenseByCategory
+    .map((g) => ({ name: categoryName.get(g.categoryId) ?? "Other", cents: g._sum.amountCents ?? 0 }))
+    .sort((a, b) => b.cents - a.cents);
+  const qty = (n: number) => Number(n.toFixed(2)).toLocaleString();
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -276,6 +340,93 @@ export default async function DashboardPage() {
             }
           >
             <SalePurchaseBarChart data={Array.from(byDay.values())} />
+          </Card>
+
+          <Card
+            title={`This month — ${monthLabel}`}
+            action={
+              <Link href="/reports/sales-purchases" className="text-sm underline underline-offset-4">
+                Report
+              </Link>
+            }
+          >
+            <div className="flex flex-col gap-4 text-sm">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-md bg-[#0ca30c]/[0.07] px-3 py-2">
+                  <p className="text-xs text-black/50 dark:text-white/50">Sales</p>
+                  <p className="font-semibold text-[#0ca30c]">{formatCents(saleTotal)}</p>
+                </div>
+                <div className="rounded-md bg-[#2a78d6]/[0.07] px-3 py-2">
+                  <p className="text-xs text-black/50 dark:text-white/50">Purchases</p>
+                  <p className="font-semibold text-[#2a78d6]">{formatCents(purchaseTotal)}</p>
+                </div>
+                <div className="rounded-md bg-[#d03b3b]/[0.07] px-3 py-2">
+                  <p className="text-xs text-black/50 dark:text-white/50">Expenses</p>
+                  <p className="font-semibold text-[#d03b3b]">{formatCents(expenseTotal)}</p>
+                </div>
+              </div>
+
+              {monthItemRows.length === 0 ? (
+                <p className="text-black/50 dark:text-white/50">No sales or purchases this month yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="text-left text-xs text-black/50 dark:text-white/50">
+                      <tr>
+                        <th className="py-1.5 pr-2 font-medium">Item</th>
+                        <th className="py-1.5 pr-2 text-right font-medium">Sold</th>
+                        <th className="py-1.5 text-right font-medium">Purchased</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthItemRows.map((row) => (
+                        <tr key={row.name} className="border-t border-black/5 dark:border-white/5">
+                          <td className="py-2 pr-2 font-medium">{row.name}</td>
+                          <td className="py-2 pr-2 text-right whitespace-nowrap">
+                            {row.soldQty ? (
+                              <>
+                                {qty(row.soldQty)} {displayUnit(row.unit)}
+                                <span className="block text-xs text-black/50 dark:text-white/50">
+                                  {formatCents(row.soldCents)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-black/30 dark:text-white/30">—</span>
+                            )}
+                          </td>
+                          <td className="py-2 text-right whitespace-nowrap">
+                            {row.boughtQty ? (
+                              <>
+                                {qty(row.boughtQty)} {displayUnit(row.unit)}
+                                <span className="block text-xs text-black/50 dark:text-white/50">
+                                  {formatCents(row.boughtCents)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-black/30 dark:text-white/30">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {monthExpenseRows.length > 0 && (
+                <div>
+                  <p className="mb-1 text-xs font-medium text-black/50 dark:text-white/50">Expenses by category</p>
+                  <ul className="flex flex-col gap-1">
+                    {monthExpenseRows.map((e) => (
+                      <li key={e.name} className="flex justify-between gap-2">
+                        <span className="text-black/70 dark:text-white/70">{e.name}</span>
+                        <span>{formatCents(e.cents)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </Card>
 
           <Card title="Party balances">
